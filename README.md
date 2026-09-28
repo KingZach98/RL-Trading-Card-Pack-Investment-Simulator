@@ -1,1 +1,1 @@
-# -RL-Trading-Card-Pack-Investment-Simulator
+# RL-Trading-Card-Pack-Investment-Simulator
