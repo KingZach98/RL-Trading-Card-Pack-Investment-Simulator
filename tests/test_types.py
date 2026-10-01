@@ -52,7 +52,7 @@ def test_shared_records_are_immutable_and_use_slots():
     market = make_market()
     with pytest.raises(FrozenInstanceError):
         market.pack_ask = 900.0
-        assert not hasattr(market, "__dict__")
+    assert not hasattr(market, "__dict__")
 
 
 @pytest.mark.parametrize(
@@ -75,8 +75,8 @@ def test_scenario_checks_tuple_types_and_lengths():
     assert len(scenario.market_path) == len(scenario.pack_outcomes) + 1
     with pytest.raises(TypeError, match="market_path must be a tuple"):
         Scenario(market_path=[market, market], pack_outcomes=(outcome,))
-        with pytest.raises(ValueError, match="one more item"):
-            Scenario(market_path=(market,), pack_outcomes=(outcome,))
+    with pytest.raises(ValueError, match="one more item"):
+        Scenario(market_path=(market,), pack_outcomes=(outcome,))
 
 
 def test_amounts_are_stored_as_floats():
