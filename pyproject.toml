@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=75,<81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "packfolio"
+version = "0.1.0"
+description = "Trading card pack investment simulator"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { file = "LICENSE" }
+dependencies = [
+    "numpy==2.2.6",
+    "gymnasium==1.1.1",
+    "matplotlib==3.10.3",
+]
+
+[project.optional-dependencies]
+agent = ["torch==2.7.1"]
+dev = ["pytest==8.4.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

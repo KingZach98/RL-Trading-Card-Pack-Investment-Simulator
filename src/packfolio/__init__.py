@@ -1,0 +1,1 @@
+"""Trading card pack investment simulator."""
