@@ -9,6 +9,7 @@ from packfolio.types import (
     OBSERVATION_SIZE,
     STEP_INFO_SCHEMA_VERSION,
     Action,
+    EvaluationRow,
     MarketRegime,
     MarketSnapshot,
     ObservationIndex,
@@ -52,6 +53,37 @@ def make_step_info(**changes: object) -> StepInfo:
     }
     values.update(changes)
     return StepInfo(**values)
+
+
+def make_evaluation_row(**changes: object) -> EvaluationRow:
+    values = {
+        "simulator_version": "0.1.0",
+        "policy_id": "CASH_ONLY",
+        "model_id": None,
+        "training_seed": None,
+        "scenario_id": "test-001",
+        "scenario_seed": 123,
+        "config_hash": "a" * 64,
+        "git_commit": "b" * 40,
+        "episode_steps": 1,
+        "initial_portfolio_value": 10_000.0,
+        "final_portfolio_value": 10_000.0,
+        "cumulative_reward": 0.0,
+        "requested_hold_count": 1,
+        "requested_buy_pack_count": 0,
+        "requested_open_and_sell_count": 0,
+        "requested_sell_pack_count": 0,
+        "executed_hold_count": 1,
+        "executed_buy_pack_count": 0,
+        "executed_open_and_sell_count": 0,
+        "executed_sell_pack_count": 0,
+        "infeasible_action_count": 0,
+        "terminated": True,
+        "truncated": False,
+        "termination_reason": TerminationReason.HORIZON,
+    }
+    values.update(changes)
+    return EvaluationRow(**values)
 
 
 def test_contract_ids_and_versions_are_fixed():
@@ -148,15 +180,15 @@ def test_step_info_records_an_opened_pack():
     assert step.to_dict()["pack_outcome_id"] == "MEDIUM_VALUE"
 
 
-@pytest.mark.parametrize("changes, message",
-    [
-        ({"requested_action": Action.BUY_PACK, "executed_action": Action.HOLD,},"must execute unchanged",),
-        ({"action_was_infeasible": True},"HOLD cannot be infeasible",),
-        ({"requested_action": Action.BUY_PACK,"executed_action": Action.SELL_PACK,"action_was_infeasible": True,},"must execute HOLD",),
-        ({"requested_action": Action.OPEN_AND_SELL, "executed_action": Action.OPEN_AND_SELL, },"pack result must appear",),
-        ({"pack_outcome_id": PackOutcomeId.LOW_VALUE,"gross_opened_value": 200, },"pack result must appear only",),
-    ],
-)
+@pytest.mark.parametrize(
+        "changes, message",
+        [
+            ({"requested_action": Action.BUY_PACK, "executed_action": Action.HOLD,},"must execute unchanged",),
+            ({"action_was_infeasible": True},"HOLD cannot be infeasible",),
+            ({"requested_action": Action.BUY_PACK,"executed_action": Action.SELL_PACK,"action_was_infeasible": True,},"must execute HOLD",),
+            ({"requested_action": Action.OPEN_AND_SELL, "executed_action": Action.OPEN_AND_SELL, },"pack result must appear",),
+            ({"pack_outcome_id": PackOutcomeId.LOW_VALUE,"gross_opened_value": 200, },"pack result must appear only",),
+        ],)
 
 def test_step_info_rejects_impossible_action_results(changes, message):
     with pytest.raises(ValueError, match=message):
@@ -181,3 +213,69 @@ def test_step_info_loader_checks_versions_and_action_ids():
     boolean_action["requested_action"] = True
     with pytest.raises(TypeError, match="requested_action must be an integer"):
         StepInfo.from_dict(boolean_action)
+
+
+def test_evaluation_row_round_trip_uses_schema_versions():
+    row = make_evaluation_row()
+    data = row.to_dict()
+    assert data["schema_version"] == "1.0"
+    assert data["interface_version"] == "1.0"
+    assert data["observation_schema_version"] == "1.0"
+    assert data["model_id"] is None
+    assert data["termination_reason"] == "HORIZON"
+    assert EvaluationRow.from_dict(data) == row
+
+
+@pytest.mark.parametrize(
+        "changes, message",
+        [
+            ({"requested_hold_count": 0}, "requested action counts must sum",),
+            ({"executed_hold_count": 0},"executed action counts must sum",),
+            ({"infeasible_action_count": 2},"infeasible_action_count cannot exceed",),
+            ({"infeasible_action_count": 1},"executed_hold_count must equal",),
+            ({"requested_hold_count": -1},"requested_hold_count must not be negative",),
+        ],)
+
+def test_evaluation_row_rejects_invalid_action_totals(changes, message):
+    with pytest.raises(ValueError, match=message):
+        make_evaluation_row(**changes)
+
+
+def test_evaluation_row_rejects_impossible_action_counts():
+    with pytest.raises(ValueError, match="executed_sell_pack_count cannot exceed"):
+        make_evaluation_row(
+            episode_steps=2,
+            requested_hold_count=0,
+            requested_buy_pack_count=1,
+            requested_sell_pack_count=1,
+            executed_hold_count=0,
+            executed_buy_pack_count=0,
+            executed_sell_pack_count=2,
+        )
+
+
+@pytest.mark.parametrize(
+        "changes, message",
+        [
+            ({"episode_steps": 0,"requested_hold_count": 0,"executed_hold_count": 0,},"must contain a step",),
+            ({"scenario_seed": -1}, "scenario_seed must not be negative"),
+            ({"training_seed": -1}, "training_seed must not be negative"),
+            ({"terminated": False}, "must be terminated"),
+            ({"truncated": True}, "cannot be truncated"),
+        ],)
+
+def test_evaluation_row_rejects_invalid_run_details(changes, message):
+    with pytest.raises(ValueError, match=message):
+        make_evaluation_row(**changes)
+
+
+def test_evaluation_row_loader_checks_versions_and_fields():
+    wrong_version = make_evaluation_row().to_dict()
+    wrong_version["interface_version"] = "2.0"
+    with pytest.raises(ValueError, match="interface_version must be '1.0'"):
+        EvaluationRow.from_dict(wrong_version)
+
+    missing_field = make_evaluation_row().to_dict()
+    missing_field.pop("policy_id")
+    with pytest.raises(ValueError, match="missing fields: policy_id"):
+        EvaluationRow.from_dict(missing_field)

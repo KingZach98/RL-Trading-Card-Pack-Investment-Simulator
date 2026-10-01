@@ -79,6 +79,24 @@ def _as_bool(value: object, name: str) -> bool:
     return value
 
 
+def _as_string(value: object, name: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    return value
+
+
+def _as_optional_string(value: object, name: str) -> str | None:
+    if value is None:
+        return None
+    return _as_string(value, name)
+
+
+def _as_optional_int(value: object, name: str) -> int | None:
+    if value is None:
+        return None
+    return _as_int(value, name, nonnegative=True)
+
+
 def _read_action(value: object, name: str) -> Action:
     action_id = _as_int(value, name)
     try:
@@ -305,9 +323,120 @@ class StepInfo(_SerializableRecord):
         values["termination_reason"] = _read_optional_enum(values["termination_reason"], TerminationReason,"termination_reason",)
         return cls(**values)
 
+
+_REQUESTED_ACTION_COUNTS = (
+    "requested_hold_count",
+    "requested_buy_pack_count",
+    "requested_open_and_sell_count",
+    "requested_sell_pack_count",
+)
+
+_EXECUTED_ACTION_COUNTS = (
+    "executed_hold_count",
+    "executed_buy_pack_count",
+    "executed_open_and_sell_count",
+    "executed_sell_pack_count",
+)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EvaluationRow(_SerializableRecord):
+    schema_version: str = field(init=False,default=EVALUATION_ROW_SCHEMA_VERSION,)
+    interface_version: str = field(init=False, default=INTERFACE_VERSION)
+    simulator_version: str
+    observation_schema_version: str = field(init=False,default=OBSERVATION_SCHEMA_VERSION,)
+    policy_id: str
+    model_id: str | None
+    training_seed: int | None
+    scenario_id: str
+    scenario_seed: int
+    config_hash: str
+    git_commit: str
+    episode_steps: int
+    initial_portfolio_value: float
+    final_portfolio_value: float
+    cumulative_reward: float
+    requested_hold_count: int
+    requested_buy_pack_count: int
+    requested_open_and_sell_count: int
+    requested_sell_pack_count: int
+    executed_hold_count: int
+    executed_buy_pack_count: int
+    executed_open_and_sell_count: int
+    executed_sell_pack_count: int
+    infeasible_action_count: int
+    terminated: bool
+    truncated: bool
+    termination_reason: TerminationReason
+
+    def __post_init__(self) -> None:
+        for name in ("simulator_version","policy_id","scenario_id","config_hash","git_commit",):
+            object.__setattr__(self, name, _as_string(getattr(self, name), name))
+
+        object.__setattr__(self,"model_id",_as_optional_string(self.model_id, "model_id"),)
+        object.__setattr__(self,"training_seed",_as_optional_int(self.training_seed, "training_seed"),)
+        object.__setattr__(self,"scenario_seed", _as_int(self.scenario_seed, "scenario_seed", nonnegative=True),)
+        object.__setattr__( self,"episode_steps",_as_int(self.episode_steps, "episode_steps", nonnegative=True), )
+
+        for name in ("initial_portfolio_value", "final_portfolio_value"):
+            object.__setattr__(self,name,_as_float(getattr(self, name), name, nonnegative=True),)
+        object.__setattr__(self,"cumulative_reward",_as_float(self.cumulative_reward, "cumulative_reward"),)
+
+        for name in (*_REQUESTED_ACTION_COUNTS, *_EXECUTED_ACTION_COUNTS,"infeasible_action_count",):
+            object.__setattr__(self, name,_as_int(getattr(self, name), name, nonnegative=True),)
+
+        _as_bool(self.terminated, "terminated")
+        _as_bool(self.truncated, "truncated")
+        _expect_type( self.termination_reason, TerminationReason, "termination_reason",)
+
+        self._check_action_counts()
+        self._check_end_state()
+
+    def _check_action_counts(self) -> None:
+        requested_total = sum(
+            getattr(self, name) for name in _REQUESTED_ACTION_COUNTS)
+        if requested_total != self.episode_steps:
+            raise ValueError("requested action counts must sum to episode_steps")
+        executed_total = sum(
+            getattr(self, name) for name in _EXECUTED_ACTION_COUNTS)
+        if executed_total != self.episode_steps:
+            raise ValueError("executed action counts must sum to episode_steps")
+        if self.infeasible_action_count > self.episode_steps:
+            raise ValueError("infeasible_action_count cannot exceed episode_steps")
+
+        expected_holds = self.requested_hold_count + self.infeasible_action_count
+        if self.executed_hold_count != expected_holds:
+            raise ValueError("executed_hold_count must equal requested holds plus " "infeasible actions")
+
+        for action_name in ("buy_pack", "open_and_sell", "sell_pack"):
+            requested = getattr(self, f"requested_{action_name}_count")
+            executed = getattr(self, f"executed_{action_name}_count")
+            if executed > requested:
+                raise ValueError(f"executed_{action_name}_count cannot exceed its request count")
+
+    def _check_end_state(self) -> None:
+        if self.episode_steps == 0:
+            raise ValueError("a completed evaluation row must contain a step")
+        if not self.terminated:
+            raise ValueError("a Version 1 evaluation row must be terminated")
+        if self.truncated:
+            raise ValueError("a Version 1 evaluation row cannot be truncated")
+        if self.termination_reason is not TerminationReason.HORIZON:
+            raise ValueError("a Version 1 evaluation row must end at HORIZON")
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        values = _record_data(data, _field_names(cls), cls.__name__)
+        _check_version(values.pop("schema_version"),EVALUATION_ROW_SCHEMA_VERSION,"schema_version",)
+        _check_version( values.pop("interface_version"), INTERFACE_VERSION, "interface_version",)
+        _check_version(values.pop("observation_schema_version"),OBSERVATION_SCHEMA_VERSION,"observation_schema_version",)
+        values["termination_reason"] = _read_enum(values["termination_reason"],TerminationReason,"termination_reason",)
+        return cls(**values)
+
 __all__ = [
     "Action",
     "EVALUATION_ROW_SCHEMA_VERSION",
+    "EvaluationRow",
     "INTERFACE_VERSION",
     "MarketRegime",
     "MarketSnapshot",
