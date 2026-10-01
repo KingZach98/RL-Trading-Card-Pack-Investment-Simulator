@@ -208,56 +208,23 @@ and `PackConfig` mean the validated, read-only config sections from
 
 ```python
 # market.py
-def snapshot_for(
-    regime: MarketRegime,
-    config: MarketConfig,
-) -> MarketSnapshot: ...
+def snapshot_for(regime: MarketRegime,config: MarketConfig,) -> MarketSnapshot: ...
 
-def advance_market(
-    current_regime: MarketRegime,
-    rng: numpy.random.Generator,
-    config: MarketConfig,
-) -> MarketSnapshot: ...
+def advance_market(current_regime: MarketRegime,rng: numpy.random.Generator,config: MarketConfig,) -> MarketSnapshot: ...
 
 # packs.py
-def draw_pack_outcome(
-    rng: numpy.random.Generator,
-    market: MarketSnapshot,
-    config: PackConfig,
-) -> PackOutcome: ...
+def draw_pack_outcome(rng: numpy.random.Generator,market: MarketSnapshot,config: PackConfig,) -> PackOutcome: ...
 
 # portfolio.py
-def apply_action(
-    portfolio: PortfolioSnapshot,
-    action: Action,
-    market: MarketSnapshot,
-    *,
-    selling_fee: float,
-    inventory_capacity: int,
-    pack_outcome: PackOutcome | None = None,
-) -> PortfolioUpdate: ...
+def apply_action(portfolio: PortfolioSnapshot,action: Action,market: MarketSnapshot,*,selling_fee: float, inventory_capacity: int,
+    pack_outcome: PackOutcome | None = None,) -> PortfolioUpdate: ...
 
-def liquidate(
-    portfolio: PortfolioSnapshot,
-    market: MarketSnapshot,
-    *,
-    selling_fee: float,
-) -> PortfolioUpdate: ...
+def liquidate(portfolio: PortfolioSnapshot,market: MarketSnapshot,*,selling_fee: float,) -> PortfolioUpdate: ...
 
-def liquidation_value(
-    portfolio: PortfolioSnapshot,
-    market: MarketSnapshot,
-    *,
-    selling_fee: float,
-) -> float: ...
+def liquidation_value( portfolio: PortfolioSnapshot,market: MarketSnapshot,*,selling_fee: float,) -> float: ...
 
 # scenarios.py
-def build_scenario(
-    seed: int,
-    horizon: int,
-    market_config: MarketConfig,
-    pack_config: PackConfig,
-) -> Scenario: ...
+def build_scenario(seed: int, horizon: int, market_config: MarketConfig, pack_config: PackConfig,) -> Scenario: ...
 ```
 
 `snapshot_for()` does not draw a random value. `advance_market()` draws the
