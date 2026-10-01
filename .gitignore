@@ -156,6 +156,19 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.venv/
+.env.*
+!.env.example
+secrets/
+
+# Generated simulations and training artifacts
+outputs/
+runs/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.npz
 
 # Spyder project settings
 .spyderproject
