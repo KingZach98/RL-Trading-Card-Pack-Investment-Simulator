@@ -96,7 +96,7 @@ def test_contract_ids_and_versions_are_fixed():
     assert {item.name: item.value for item in Action} == {"HOLD": 0,"BUY_PACK": 1,"OPEN_AND_SELL": 2,"SELL_PACK": 3,}
     assert {item.name: item.value for item in ObservationIndex} == {"CASH_RATIO": 0,"SEALED_COUNT_RATIO": 1,"PACK_ASK_RATIO": 2,
         "CARD_VALUE_MULTIPLIER": 3,
-        "REMAINING_STEPS_RATIO": 4,                                                           
+        "REMAINING_STEPS_RATIO": 4,
         "REGIME_LOW": 5,
         "REGIME_NORMAL": 6,
         "REGIME_HIGH": 7,}
@@ -201,6 +201,9 @@ def test_step_info_rejects_invalid_field_values():
 
     with pytest.raises(TypeError, match="action_was_infeasible must be a boolean"):
         make_step_info(action_was_infeasible=1)
+
+    with pytest.raises(TypeError, match="gross_opened_value must be a number"):
+        make_step_info(gross_opened_value=True)
 
 
 def test_step_info_loader_checks_versions_and_action_ids():

@@ -159,7 +159,7 @@ def _serialized_value(value: object) -> object:
 
 class _SerializableRecord:
     __slots__ = ()
-    
+
     def to_dict(self) -> dict[str, object]:
         return {name: _serialized_value(getattr(self, name))
                 for name in _field_names(self)
@@ -282,10 +282,11 @@ class StepInfo(_SerializableRecord):
 
         for name in ("sealed_count_before", "sealed_count_after"):
             object.__setattr__(self,name, _as_int(getattr(self, name), name, nonnegative=True),)
-            if self.pack_outcome_id is not None:
-                _expect_type(self.pack_outcome_id, PackOutcomeId, "pack_outcome_id")
-                if self.gross_opened_value is not None:
-                    object.__setattr__(self,"gross_opened_value",_as_float(self.gross_opened_value,"gross_opened_value",nonnegative=True,),)
+
+        if self.pack_outcome_id is not None:
+            _expect_type(self.pack_outcome_id, PackOutcomeId, "pack_outcome_id")
+        if self.gross_opened_value is not None:
+            object.__setattr__(self,"gross_opened_value",_as_float(self.gross_opened_value,"gross_opened_value",nonnegative=True,),)
 
         object.__setattr__(self, "reward", _as_float(self.reward, "reward"))
         if self.termination_reason is not None: _expect_type(self.termination_reason,TerminationReason, "termination_reason",)
