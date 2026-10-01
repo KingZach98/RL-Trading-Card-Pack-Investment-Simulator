@@ -231,7 +231,7 @@ X = base_bundle_value * card_value_multiplier(m)
 
 These categories, probabilities, and values are synthetic test assumptions.
 They are not official rarity names, measured NFL pull rates, or observed resale
-values. Draws are independent and with replacement. The sampler does not apply
+values. Draws are independent and with replacement. The sampler does not apply 
 fees, mutate the portfolio, choose an action, or reveal unopened outcomes.
 
 As an analytical check, the proposed distribution has expected gross value
