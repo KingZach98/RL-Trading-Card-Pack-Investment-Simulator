@@ -1,0 +1,6 @@
+{
+  "interface_version": "1.0",
+  "reference_price": 1000.0,
+  "market_snapshot": {"regime": "NORMAL","pack_ask": 1000.0, "card_value_multiplier": 1.0},
+  "expected_observation_fields": { "pack_ask_ratio": 1.0, "card_value_multiplier": 1.0, "regime_low": 0.0, "regime_normal": 1.0, "regime_high": 0.0}
+}

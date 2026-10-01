@@ -416,8 +416,8 @@ The contract test must prove these points:
 - The environment-facing data can create a valid `StepInfo` value.
 - The evaluator can combine that step with run metadata and create a valid
   `EvaluationRow`.
-- Market and pack calls accept no portfolio object and return no portfolio
-  fields.
+- Market and pack records contain no portfolio fields. Later implementation
+  tests must confirm that market and pack calls accept no portfolio object.
 - Missing, extra, or wrongly typed required fields fail clearly.
 
 ## 12. Version changes
