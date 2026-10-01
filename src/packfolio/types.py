@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections.abc import Mapping
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from enum import IntEnum, StrEnum
 from math import isfinite
 from numbers import Integral, Real
@@ -73,6 +73,20 @@ def _expect_type(value: object, expected_type: type, name: str) -> None:
         raise TypeError(f"{name} must be {expected_type.__name__}")
 
 
+def _as_bool(value: object, name: str) -> bool:
+    if not isinstance(value, bool):
+        raise TypeError(f"{name} must be a boolean")
+    return value
+
+
+def _read_action(value: object, name: str) -> Action:
+    action_id = _as_int(value, name)
+    try:
+        return Action(action_id)
+    except ValueError as error:
+        raise ValueError(f"{name} has unknown action ID {action_id}") from error
+
+
 def _read_enum(value: object,enum_type: type[EnumType], name: str,) -> EnumType:
     if not isinstance(value, str):
         raise TypeError(f"{name} must be a string")
@@ -80,6 +94,19 @@ def _read_enum(value: object,enum_type: type[EnumType], name: str,) -> EnumType:
         return enum_type(value)
     except ValueError as error:
         raise ValueError(f"{name} has unknown value {value!r}") from error
+
+
+def _read_optional_enum(value: object,enum_type: type[EnumType],name: str,) -> EnumType | None:
+    if value is None:
+        return None
+    return _read_enum(value, enum_type, name)
+
+
+def _check_version(value: object, expected: str, name: str) -> None:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    if value != expected:
+        raise ValueError(f"{name} must be {expected!r}, got {value!r}")
 
 
 def _record_data(data: object,expected_fields: tuple[str, ...], record_name: str,) -> dict[str, object]:
@@ -200,6 +227,84 @@ class Scenario:
                 "market_path must have one more item than pack_outcomes")
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StepInfo(_SerializableRecord):
+    schema_version: str = field(init=False, default=STEP_INFO_SCHEMA_VERSION)
+    step_index: int
+    requested_action: Action
+    executed_action: Action
+    action_was_infeasible: bool
+    regime_before: MarketRegime
+    regime_after: MarketRegime
+    cash_before: float
+    cash_after: float
+    sealed_count_before: int
+    sealed_count_after: int
+    pack_outcome_id: PackOutcomeId | None
+    gross_opened_value: float | None
+    fee_paid: float
+    portfolio_value_before: float
+    portfolio_value_after: float
+    reward: float
+    termination_reason: TerminationReason | None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "step_index",
+            _as_int(self.step_index, "step_index", nonnegative=True),)
+        _expect_type(self.requested_action, Action, "requested_action")
+        _expect_type(self.executed_action, Action, "executed_action")
+        _as_bool(self.action_was_infeasible, "action_was_infeasible")
+        _expect_type(self.regime_before, MarketRegime, "regime_before")
+        _expect_type(self.regime_after, MarketRegime, "regime_after")
+
+        for name in ("cash_before", "cash_after", "fee_paid", "portfolio_value_before", "portfolio_value_after",):
+            object.__setattr__(self,name, _as_float(getattr(self, name), name, nonnegative=True),)
+
+        for name in ("sealed_count_before", "sealed_count_after"):
+            object.__setattr__(self,name, _as_int(getattr(self, name), name, nonnegative=True),)
+            if self.pack_outcome_id is not None:
+                _expect_type(self.pack_outcome_id, PackOutcomeId, "pack_outcome_id")
+                if self.gross_opened_value is not None:
+                    object.__setattr__(self,"gross_opened_value",_as_float(self.gross_opened_value,"gross_opened_value",nonnegative=True,),)
+
+        object.__setattr__(self, "reward", _as_float(self.reward, "reward"))
+        if self.termination_reason is not None: _expect_type(self.termination_reason,TerminationReason, "termination_reason",)
+        self._check_action_result()
+        self._check_pack_result()
+
+    def _check_action_result(self) -> None:
+        if self.action_was_infeasible:
+            if self.requested_action is Action.HOLD:
+                raise ValueError("HOLD cannot be infeasible")
+            if self.executed_action is not Action.HOLD:
+                raise ValueError("an infeasible action must execute HOLD")
+        elif self.requested_action is not self.executed_action:
+            raise ValueError("a feasible requested action must execute unchanged")
+
+    def _check_pack_result(self) -> None:
+        has_outcome = self.pack_outcome_id is not None
+        has_value = self.gross_opened_value is not None
+        if has_outcome != has_value:
+            raise ValueError("pack outcome ID and gross value must appear together")
+
+        opened_pack = self.executed_action is Action.OPEN_AND_SELL
+        if opened_pack != has_outcome:
+            raise ValueError("pack result must appear only for OPEN_AND_SELL")
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        values = _record_data(data, _field_names(cls), cls.__name__)
+        _check_version(values.pop("schema_version"),STEP_INFO_SCHEMA_VERSION, "schema_version",)
+        values["requested_action"] = _read_action(values["requested_action"],"requested_action",)
+        values["executed_action"] = _read_action(values["executed_action"],"executed_action",)
+        values["regime_before"] = _read_enum(values["regime_before"],MarketRegime,"regime_before",)
+        values["regime_after"] = _read_enum( values["regime_after"],MarketRegime,"regime_after",)
+        values["pack_outcome_id"] = _read_optional_enum(values["pack_outcome_id"], PackOutcomeId,"pack_outcome_id",)
+        values["termination_reason"] = _read_optional_enum(values["termination_reason"], TerminationReason,"termination_reason",)
+        return cls(**values)
+
 __all__ = [
     "Action",
     "EVALUATION_ROW_SCHEMA_VERSION",
@@ -215,5 +320,6 @@ __all__ = [
     "PortfolioUpdate",
     "STEP_INFO_SCHEMA_VERSION",
     "Scenario",
+    "StepInfo",
     "TerminationReason",
 ]

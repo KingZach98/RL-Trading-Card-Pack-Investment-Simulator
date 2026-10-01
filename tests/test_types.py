@@ -17,6 +17,7 @@ from packfolio.types import (
     PortfolioSnapshot,
     PortfolioUpdate,
     Scenario,
+    StepInfo,
     TerminationReason,
 )
 
@@ -27,6 +28,30 @@ def make_market() -> MarketSnapshot:
 
 def make_pack_outcome() -> PackOutcome:
     return PackOutcome(outcome_id=PackOutcomeId.MEDIUM_VALUE,base_gross_value=1_000.0,gross_value=1_000.0,)
+
+
+def make_step_info(**changes: object) -> StepInfo:
+    values = {
+        "step_index": 0,
+        "requested_action": Action.HOLD,
+        "executed_action": Action.HOLD,
+        "action_was_infeasible": False,
+        "regime_before": MarketRegime.NORMAL,
+        "regime_after": MarketRegime.NORMAL,
+        "cash_before": 10_000.0,
+        "cash_after": 10_000.0,
+        "sealed_count_before": 0,
+        "sealed_count_after": 0,
+        "pack_outcome_id": None,
+        "gross_opened_value": None,
+        "fee_paid": 0.0,
+        "portfolio_value_before": 10_000.0,
+        "portfolio_value_after": 10_000.0,
+        "reward": 0.0,
+        "termination_reason": None,
+    }
+    values.update(changes)
+    return StepInfo(**values)
 
 
 def test_contract_ids_and_versions_are_fixed():
@@ -92,3 +117,67 @@ def test_records_require_contract_enum_types():
 
     with pytest.raises(TypeError, match="outcome_id must be PackOutcomeId"):
         PackOutcome(outcome_id="MEDIUM_VALUE",base_gross_value=1_000,gross_value=1_000,)
+
+
+def test_step_info_round_trip_uses_public_values():
+    step = make_step_info()
+    data = step.to_dict()
+    assert data["schema_version"] == "1.0"
+    assert data["requested_action"] == 0
+    assert data["regime_before"] == "NORMAL"
+    assert data["pack_outcome_id"] is None
+    assert StepInfo.from_dict(data) == step
+
+
+def test_step_info_accepts_an_infeasible_action():
+    step = make_step_info(requested_action=Action.BUY_PACK, executed_action=Action.HOLD,action_was_infeasible=True,)
+    assert step.action_was_infeasible is True
+
+
+def test_step_info_records_an_opened_pack():
+    step = make_step_info(
+        requested_action=Action.OPEN_AND_SELL,
+        executed_action=Action.OPEN_AND_SELL,
+        sealed_count_before=1,
+        pack_outcome_id=PackOutcomeId.MEDIUM_VALUE,
+        gross_opened_value=1_000,
+        fee_paid=50,
+    )
+
+    assert step.gross_opened_value == 1_000.0
+    assert step.to_dict()["pack_outcome_id"] == "MEDIUM_VALUE"
+
+
+@pytest.mark.parametrize("changes, message",
+    [
+        ({"requested_action": Action.BUY_PACK, "executed_action": Action.HOLD,},"must execute unchanged",),
+        ({"action_was_infeasible": True},"HOLD cannot be infeasible",),
+        ({"requested_action": Action.BUY_PACK,"executed_action": Action.SELL_PACK,"action_was_infeasible": True,},"must execute HOLD",),
+        ({"requested_action": Action.OPEN_AND_SELL, "executed_action": Action.OPEN_AND_SELL, },"pack result must appear",),
+        ({"pack_outcome_id": PackOutcomeId.LOW_VALUE,"gross_opened_value": 200, },"pack result must appear only",),
+    ],
+)
+
+def test_step_info_rejects_impossible_action_results(changes, message):
+    with pytest.raises(ValueError, match=message):
+        make_step_info(**changes)
+
+
+def test_step_info_rejects_invalid_field_values():
+    with pytest.raises(ValueError, match="fee_paid must not be negative"):
+        make_step_info(fee_paid=-1)
+
+    with pytest.raises(TypeError, match="action_was_infeasible must be a boolean"):
+        make_step_info(action_was_infeasible=1)
+
+
+def test_step_info_loader_checks_versions_and_action_ids():
+    wrong_version = make_step_info().to_dict()
+    wrong_version["schema_version"] = "2.0"
+    with pytest.raises(ValueError, match="schema_version must be '1.0'"):
+        StepInfo.from_dict(wrong_version)
+
+    boolean_action = make_step_info().to_dict()
+    boolean_action["requested_action"] = True
+    with pytest.raises(TypeError, match="requested_action must be an integer"):
+        StepInfo.from_dict(boolean_action)
