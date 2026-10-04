@@ -1,0 +1,8 @@
+{
+  "split": "final_test",
+  "owner": "Saki",
+  "environment_config": "../environment.json",
+  "config_hash": "57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330",
+  "simulator_version": "packfolio-scenarios-v1",
+  "seeds": [3001, 3002, 3003]
+}

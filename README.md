@@ -2,8 +2,9 @@
 
 Python package: `packfolio` (Python 3.12). Core dependencies are NumPy 2.2.6,
 Gymnasium 1.1.1, and Matplotlib 3.10.3. The optional DQN dependency is
-PyTorch 2.7.1; tests use pytest 8.4.1. The pack sampler is implemented;
-the other simulator modules are currently placeholders.
+PyTorch 2.7.1; tests use pytest 8.4.1. Pack sampling, market transitions,
+shared contracts, and reproducible scenarios are implemented; the gym
+environment and agent modules are still placeholders.
 
 ## Local setup
 
@@ -73,3 +74,24 @@ it does not sample or consume random state.
 occurs, and handles cash changes there. Saki uses `expected_gross_value` for
 the EV baseline. Neither function deducts fees, pack purchase costs, or changes
 cash.
+
+## Reproducible scenarios
+
+See [configuration and split handoff](configs/README.md) for seed ownership,
+versioning, paired draw slots, and the policy privacy boundary.
+
+```python
+from packfolio.scenarios import Scenario, load_split_manifest
+
+training = load_split_manifest("configs/splits/training.json")
+scenario = Scenario(training.config, training.scenarios[0])
+current_market = scenario.current_market
+draw = scenario.open_pack()  # current timestep, first opening slot
+next_market = scenario.advance()
+```
+
+Nasir receives separate training and validation manifests; Saki controls the
+final-test manifest and validates all three splits for overlap before final
+evaluation. Opening extra packs cannot advance the market RNG or shift pack
+draw slots at future timesteps. Scenario identifiers encode the configuration
+hash and root seed; retain the matching config and simulator version for replay.
