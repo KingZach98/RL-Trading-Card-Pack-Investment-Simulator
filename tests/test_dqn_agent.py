@@ -16,7 +16,7 @@ from packfolio.types import Action, OBSERVATION_SIZE, ObservationIndex
 
 
 FIXTURE_PATH = (
-    Path(__file__).resolve().parent / "fixtures" / "contract_exchange_v1.json"
+    Path(__file__).resolve().parent / "fixtures" / "contract_exchange_v2.json"
 )
 
 
