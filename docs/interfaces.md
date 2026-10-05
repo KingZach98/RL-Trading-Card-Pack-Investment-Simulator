@@ -284,6 +284,18 @@ in Version 1, with no seed, scenario ID, or unopened pack result.
 `step()` returns its normal Gymnasium values. Its `info` mapping uses the
 `StepInfo` fields below. Policies must not receive this mapping.
 
+At the PF-09 handoff, `step()` handles all four actions at the current quotes,
+then advances the scenario once. An infeasible action executes `HOLD` and still
+advances time. Invalid action IDs and types fail before any action or advance.
+The step log records both actions and the portfolio values at the current and
+next quotes.
+
+PF-09 returns a temporary reward of `0.0` and stops at the scenario horizon.
+Remaining inventory stays sealed. PF-10 will add the value-change reward and
+terminal liquidation, including the final observation rule in Section 4 and
+the combined fees in Section 5.4. Do not use this handoff for training or final
+policy comparisons until PF-10 is complete.
+
 `TerminationReason` is a `StrEnum` with these values:
 
 - `HORIZON`
