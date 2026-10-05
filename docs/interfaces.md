@@ -256,11 +256,30 @@ reset(seed=None, options=None) -> (observation, info)
 step(action) -> (observation, reward, terminated, truncated, info)
 ```
 
+PF-09 exposes `PackfolioEnv` from `packfolio.env`. Construct it with a validated
+`EnvironmentConfig` and two required, positive settings:
+
+```python
+env = PackfolioEnv(config, inventory_capacity=10, reference_price=10.0)
+```
+
+Here, `10` is the inventory limit and `10.0` is a reference price in the same
+units as the configured quotes. These are explicit inputs, not hidden defaults.
+The current config hash covers `EnvironmentConfig` only. Before running
+experiments, the recorded experiment settings must also include the capacity
+and reference price, and policies must use the same normalization settings.
+
+Reset restores the configured initial cash, zero sealed packs, timestep zero,
+and the configured initial market regime. It accepts no custom reset options;
+`options=None` and `options={}` both work.
+
 During evaluation, `evaluate.py` calls `reset(seed=scenario_seed)` and keeps the
-matching `scenario_id`. The environment asks `scenarios.py` to build the full
-private `Scenario` before it returns the first observation. The same seed and
-config must build the same scenario. `reset()` returns an empty `info` mapping
-in Version 1.
+matching `scenario_id`. The environment creates a private runtime
+`scenarios.Scenario` before it returns the first observation. The same seed and
+config must replay the same scenario. An explicit seed is passed through
+unchanged. With `seed=None`, reset draws an episode seed from the environment's
+existing Gymnasium random generator. `reset()` returns an empty `info` mapping
+in Version 1, with no seed, scenario ID, or unopened pack result.
 
 `step()` returns its normal Gymnasium values. Its `info` mapping uses the
 `StepInfo` fields below. Policies must not receive this mapping.
