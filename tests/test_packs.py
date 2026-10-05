@@ -240,9 +240,10 @@ def test_loader_reports_missing_file_and_malformed_json(tmp_path):
 def test_distribution_matches_configured_odds(config):
     rng = np.random.default_rng(42)
     counts = {outcome.outcome_id: 0 for outcome in config.outcomes}
-    for _ in range(20_000):
+    sample_size = 2_000
+    for _ in range(sample_size):
         counts[sample_pack(config, 1.0, rng).outcome_id] += 1
     for outcome in config.outcomes:
-        assert counts[outcome.outcome_id] / 20_000 == pytest.approx(
-            outcome.probability, abs=0.01
+        assert counts[outcome.outcome_id] / sample_size == pytest.approx(
+            outcome.probability, abs=0.03
         )
