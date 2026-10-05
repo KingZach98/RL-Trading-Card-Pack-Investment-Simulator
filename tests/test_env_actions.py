@@ -64,13 +64,13 @@ def calls(monkeypatch):
     return calls
 
 
-@pytest.mark.parametrize("action, cash, count, fee, value", [
-    (Action.HOLD, 100.0, 2, 0.0, 115.2),
-    (Action.BUY_PACK, 88.0, 3, 0.0, 110.8),
-    (Action.OPEN_AND_SELL, 122.8, 1, 1.2, 130.4),
-    (Action.SELL_PACK, 111.4, 1, 0.6, 119.0),
+@pytest.mark.parametrize("action, cash, count, fee, value, expected_reward", [
+    (Action.HOLD, 100.0, 2, 0.0, 115.2, -0.076),
+    (Action.BUY_PACK, 88.0, 3, 0.0, 110.8, -0.12),
+    (Action.OPEN_AND_SELL, 122.8, 1, 1.2, 130.4, 0.076),
+    (Action.SELL_PACK, 111.4, 1, 0.6, 119.0, -0.038),
 ])
-def test_actions_use_current_quotes_then_advance_once(env, calls, action, cash, count, fee, value):
+def test_actions_use_current_quotes_then_advance_once(env, calls, action, cash, count, fee, value, expected_reward):
     observation, reward, terminated, truncated, info = env.step(action)
     step = StepInfo.from_dict(info)
     assert calls == (["open"] if action is Action.OPEN_AND_SELL else []) + [action, "advance"]
@@ -101,17 +101,18 @@ def test_actions_use_current_quotes_then_advance_once(env, calls, action, cash, 
     np.testing.assert_array_equal(observation, np.array(
         [cash / 100, count / 10, 0.8, 0.75, 2 / 3, 1, 0, 0], dtype=np.float32))
     assert env.observation_space.contains(observation)
-    assert reward == step.reward == 0.0  # PF-10 will supply the reward rule.
+    assert reward == step.reward
+    assert reward == pytest.approx(expected_reward)
     assert terminated is truncated is False
 
 
-@pytest.mark.parametrize("action, cash, count", [
-    (Action.BUY_PACK, 11.0, 0),
-    (Action.BUY_PACK, 100.0, 10),
-    (Action.OPEN_AND_SELL, 100.0, 0),
-    (Action.SELL_PACK, 100.0, 0),
+@pytest.mark.parametrize("action, cash, count, expected_reward", [
+    (Action.BUY_PACK, 11.0, 0, 0.0),
+    (Action.BUY_PACK, 100.0, 10, -0.38),
+    (Action.OPEN_AND_SELL, 100.0, 0, 0.0),
+    (Action.SELL_PACK, 100.0, 0, 0.0),
 ])
-def test_infeasible_actions_hold_without_drawing_a_pack(env, calls, action, cash, count):
+def test_infeasible_actions_hold_without_drawing_a_pack(env, calls, action, cash, count, expected_reward):
     before = PortfolioSnapshot(cash=cash, sealed_count=count)
     env._portfolio = before
     observation, reward, terminated, truncated, info = env.step(action)
@@ -126,7 +127,8 @@ def test_infeasible_actions_hold_without_drawing_a_pack(env, calls, action, cash
     assert step.fee_paid == 0.0
     assert step.pack_outcome_id is step.gross_opened_value is None
     assert env.observation_space.contains(observation)
-    assert reward == 0.0
+    assert reward == step.reward
+    assert reward == pytest.approx(expected_reward)
     assert terminated is truncated is False
 
 
