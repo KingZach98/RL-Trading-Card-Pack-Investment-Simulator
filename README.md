@@ -38,6 +38,29 @@ Local secrets belong in `.env` (or `.env.*`), and generated results in
 `outputs/`, `runs/`, or `checkpoints/`; these paths and model weights are
 ignored by Git. Put versioned, non-secret scenario settings in `configs/`.
 
+## Reproducible DQN training
+
+The simulator assumptions are loaded from `configs/environment.json`;
+independent DQN hyperparameters are loaded from `configs/agent.yaml`. From the
+repository root, install the optional agent dependencies and start a run with:
+
+```powershell
+.\.venv\Scripts\uv.exe sync --locked --extra dev --extra agent
+.\.venv\Scripts\uv.exe run --locked --extra dev --extra agent python -m packfolio.train
+```
+
+Override the inputs with `--environment-config`, `--agent-config`, and
+`--output-root`. Each invocation creates a new unique run directory containing
+the exact input files, a fully resolved environment configuration, a
+`run_manifest.json`, per-episode `training_metrics.jsonl`, and a reloadable
+`checkpoint.pt`. The manifest records the Git commit and dirty state, package
+versions, seeds, runtime, environment config hash, and actual environment-step
+count. Training uses replay sampling, a periodically synchronized target
+network, epsilon-greedy exploration, and `gamma = 1.0`; invalid actions are
+allowed by design and their per-episode rate is logged. Checkpoints can be
+loaded for deterministic policy inference with
+`packfolio.agents.dqn_agent.load_trained_agent`.
+
 ## Environment compatibility checks (PF-11)
 
 The selected agent stack is a custom DQN using PyTorch, not Stable-Baselines3.

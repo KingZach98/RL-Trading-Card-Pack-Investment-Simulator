@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from importlib import import_module
+from pathlib import Path
 from typing import Any, Protocol
 
 import numpy as np
@@ -14,11 +15,13 @@ from packfolio.types import Action, OBSERVATION_SIZE, ObservationIndex
 
 ACTION_COUNT = len(Action)
 HIDDEN_LAYER_WIDTHS = (64, 64)
+DEFAULT_HIDDEN_LAYER_WIDTHS = HIDDEN_LAYER_WIDTHS
 FEATURE_SCALE: NDArray[np.float32] = np.asarray(
     (0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0), dtype=np.float32
 )
 FEATURE_SCALE.setflags(write=False)
 FEATURE_ORDER = tuple(index.name for index in ObservationIndex)
+ACTION_ORDER = tuple(action.name for action in Action)
 
 
 class QNetwork(Protocol):
@@ -50,8 +53,16 @@ def preprocess_observations(
     return observations * FEATURE_SCALE
 
 
-def build_q_network() -> QNetwork:
+def build_q_network(
+    hidden_layer_widths: tuple[int, ...] = DEFAULT_HIDDEN_LAYER_WIDTHS,
+) -> QNetwork:
     """Build the compact 8-to-4 Q network using the optional PyTorch extra."""
+    if (
+        not isinstance(hidden_layer_widths, tuple)
+        or not hidden_layer_widths
+        or any(type(width) is not int or width < 1 for width in hidden_layer_widths)
+    ):
+        raise ValueError("hidden_layer_widths must be a nonempty tuple of positive integers")
     try:
         torch = import_module("torch")
     except ImportError as error:
@@ -62,7 +73,7 @@ def build_q_network() -> QNetwork:
 
     layers: list[Any] = []
     input_width = OBSERVATION_SIZE
-    for width in HIDDEN_LAYER_WIDTHS:
+    for width in hidden_layer_widths:
         layers.extend((torch.nn.Linear(input_width, width), torch.nn.ReLU()))
         input_width = width
     layers.append(torch.nn.Linear(input_width, ACTION_COUNT))
@@ -122,3 +133,59 @@ class DQNAgent:
         if not np.isfinite(q_values).all():
             raise ValueError("q_function returned non-finite Q-values")
         return Action(int(np.argmax(q_values[0])))
+
+
+def load_trained_agent(checkpoint_path: str | Path) -> DQNAgent:
+    """Load a saved Q network using the checkpoint's architecture metadata."""
+    try:
+        torch = import_module("torch")
+    except ImportError as error:
+        raise ImportError(
+            "Loading a DQN checkpoint requires PyTorch; install Packfolio with "
+            "its 'agent' extra."
+        ) from error
+
+    checkpoint = torch.load(
+        Path(checkpoint_path), map_location="cpu", weights_only=True
+    )
+    if not isinstance(checkpoint, dict) or checkpoint.get("format_version") != 1:
+        raise ValueError("unsupported or malformed DQN checkpoint")
+    architecture = checkpoint.get("architecture")
+    if not isinstance(architecture, dict):
+        raise ValueError("checkpoint is missing architecture metadata")
+    if architecture.get("observation_size") != OBSERVATION_SIZE:
+        raise ValueError("checkpoint observation size does not match the interface")
+    if architecture.get("action_count") != ACTION_COUNT:
+        raise ValueError("checkpoint action count does not match the interface")
+    if tuple(architecture.get("feature_order", ())) != FEATURE_ORDER:
+        raise ValueError("checkpoint feature order does not match the interface")
+    if tuple(architecture.get("action_order", ())) != ACTION_ORDER:
+        raise ValueError("checkpoint action order does not match the interface")
+    if tuple(architecture.get("feature_scale", ())) != tuple(float(x) for x in FEATURE_SCALE):
+        raise ValueError("checkpoint feature scaling does not match this agent")
+
+    hidden_widths = architecture.get("hidden_layer_widths")
+    if not isinstance(hidden_widths, list) or not hidden_widths:
+        raise ValueError("checkpoint has invalid hidden layer widths")
+    network = build_q_network(tuple(hidden_widths))
+    state_dict = checkpoint.get("q_network_state_dict")
+    if not isinstance(state_dict, dict):
+        raise ValueError("checkpoint is missing Q-network weights")
+    network.load_state_dict(state_dict)
+    network.eval()
+    return DQNAgent.from_torch(network)
+
+
+__all__ = [
+    "ACTION_COUNT",
+    "ACTION_ORDER",
+    "DEFAULT_HIDDEN_LAYER_WIDTHS",
+    "HIDDEN_LAYER_WIDTHS",
+    "FEATURE_ORDER",
+    "FEATURE_SCALE",
+    "DQNAgent",
+    "QNetwork",
+    "build_q_network",
+    "load_trained_agent",
+    "preprocess_observations",
+]
