@@ -103,3 +103,13 @@ def test_io_errors_are_not_hidden(tmp_path):
     path.write_text("{", encoding="utf-8")
     with pytest.raises(json.JSONDecodeError):
         load_environment_config(path)
+
+
+def test_probability_and_price_assumptions_are_labeled_synthetic():
+    pack_data = json.loads((CONFIG_DIR / "nfl_pack.json").read_text(encoding="utf-8"))
+    config_readme = (CONFIG_DIR / "README.md").read_text(encoding="utf-8")
+
+    assert "synthetic" in pack_data["description"].lower()
+    assert "not real product odds or market prices" in pack_data["description"].lower()
+    assert "environment.json` is an editable synthetic starter" in config_readme
+    assert "low/normal/high asks of 8/10/12" in config_readme
