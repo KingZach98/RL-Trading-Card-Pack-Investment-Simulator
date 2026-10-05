@@ -1,10 +1,10 @@
 {
-  "interface_version": "1.0",
+  "interface_version": "2.0",
   "observation_schema_version": "1.0",
   "observation": [1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0],
   "expected_policy_action": 0,
   "step_info": {
-    "schema_version": "1.0",
+    "schema_version": "2.0",
     "step_index": 0,
     "requested_action": 0,
     "executed_action": 0,
@@ -25,7 +25,7 @@
   },
   "evaluation_row": {
     "schema_version": "1.0",
-    "interface_version": "1.0",
+    "interface_version": "2.0",
     "simulator_version": "0.1.0",
     "observation_schema_version": "1.0",
     "policy_id": "CASH_ONLY",

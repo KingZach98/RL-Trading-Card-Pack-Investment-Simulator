@@ -191,7 +191,7 @@ def test_apply_action_checks_the_fee_even_when_no_sale_occurs(action, market):
 @pytest.mark.parametrize("action", [Action.HOLD, Action.BUY_PACK, Action.SELL_PACK])
 def test_nonopening_actions_reject_pack_outcomes(action, market):
     portfolio = PortfolioSnapshot(cash=100.0, sealed_count=1)
-    outcome = PackOutcome(outcome_id=PackOutcomeId.MEDIUM_VALUE, base_gross_value=20.0, gross_value=20.0)
+    outcome = PackOutcome(outcome_id=PackOutcomeId.ROOKIE_BUNDLE, base_gross_value=20.0, gross_value=20.0)
     with pytest.raises(ValueError, match="pack_outcome is only allowed for OPEN_AND_SELL"):
         apply_action(portfolio, action, market,selling_fee=0.05, inventory_capacity=2, pack_outcome=outcome,)
 
@@ -203,7 +203,7 @@ def test_opening_removes_one_pack_and_adds_net_proceeds(
     sealed_count, gross_value, expected_cash, expected_fee, expected_value_change, market,
 ):
     portfolio = PortfolioSnapshot(cash=90.0, sealed_count=sealed_count)
-    outcome = PackOutcome(outcome_id=PackOutcomeId.MEDIUM_VALUE, base_gross_value=gross_value, gross_value=gross_value,)
+    outcome = PackOutcome(outcome_id=PackOutcomeId.ROOKIE_BUNDLE, base_gross_value=gross_value, gross_value=gross_value,)
     value_before = liquidation_value(portfolio, market, selling_fee=0.05)
     update = apply_action(portfolio, Action.OPEN_AND_SELL, market, selling_fee=0.05, inventory_capacity=2, pack_outcome=outcome,)
     value_after = liquidation_value(update.portfolio, market, selling_fee=0.05)
@@ -221,7 +221,7 @@ def test_opening_removes_one_pack_and_adds_net_proceeds(
 )
 def test_opening_with_no_cash_or_no_fee(cash, selling_fee, expected_cash, expected_fee, market):
     portfolio = PortfolioSnapshot(cash=cash, sealed_count=1)
-    outcome = PackOutcome(outcome_id=PackOutcomeId.MEDIUM_VALUE, base_gross_value=20.0, gross_value=20.0)
+    outcome = PackOutcome(outcome_id=PackOutcomeId.ROOKIE_BUNDLE, base_gross_value=20.0, gross_value=20.0)
     update = apply_action(portfolio, Action.OPEN_AND_SELL, market, selling_fee=selling_fee, inventory_capacity=2, pack_outcome=outcome,)
     assert update.portfolio.cash == pytest.approx(expected_cash)
     assert update.portfolio.sealed_count == 0
@@ -231,17 +231,17 @@ def test_opening_with_no_cash_or_no_fee(cash, selling_fee, expected_cash, expect
 def test_opening_uses_the_market_scaled_value_once():
     portfolio = PortfolioSnapshot(cash=90.0, sealed_count=1)
     market = MarketSnapshot(regime=MarketRegime.HIGH, pack_ask=12.0, card_value_multiplier=2.0)
-    outcome = PackOutcome(outcome_id=PackOutcomeId.MEDIUM_VALUE, base_gross_value=10.0, gross_value=20.0)
+    outcome = PackOutcome(outcome_id=PackOutcomeId.ROOKIE_BUNDLE, base_gross_value=10.0, gross_value=20.0)
     update = apply_action(portfolio, Action.OPEN_AND_SELL, market, selling_fee=0.05, inventory_capacity=2, pack_outcome=outcome,)
     assert update.portfolio.cash == pytest.approx(109.0)
     assert update.fee_paid == pytest.approx(1.0)
     assert market == MarketSnapshot(regime=MarketRegime.HIGH, pack_ask=12.0, card_value_multiplier=2.0)
-    assert outcome == PackOutcome(outcome_id=PackOutcomeId.MEDIUM_VALUE, base_gross_value=10.0, gross_value=20.0)
+    assert outcome == PackOutcome(outcome_id=PackOutcomeId.ROOKIE_BUNDLE, base_gross_value=10.0, gross_value=20.0)
 
 
 def test_opening_requires_a_sealed_pack(market):
     portfolio = PortfolioSnapshot(cash=100.0, sealed_count=0)
-    outcome = PackOutcome(outcome_id=PackOutcomeId.MEDIUM_VALUE, base_gross_value=20.0, gross_value=20.0)
+    outcome = PackOutcome(outcome_id=PackOutcomeId.ROOKIE_BUNDLE, base_gross_value=20.0, gross_value=20.0)
     with pytest.raises(ValueError, match="OPEN_AND_SELL requires a sealed pack"):
         apply_action(portfolio, Action.OPEN_AND_SELL, market, selling_fee=0.05, inventory_capacity=2, pack_outcome=outcome,)
     assert portfolio == PortfolioSnapshot(cash=100.0, sealed_count=0)
@@ -267,14 +267,14 @@ def test_sale_cash_overflow_is_rejected(action):
     market = MarketSnapshot(regime=MarketRegime.NORMAL, pack_ask=1e308, card_value_multiplier=1.0)
     outcome = None
     if action is Action.OPEN_AND_SELL:
-        outcome = PackOutcome(outcome_id=PackOutcomeId.HIGH_VALUE, base_gross_value=1e308, gross_value=1e308)
+        outcome = PackOutcome(outcome_id=PackOutcomeId.PREMIUM_BUNDLE, base_gross_value=1e308, gross_value=1e308)
     with pytest.raises(ValueError, match="cash must be finite"):
         apply_action(portfolio, action, market, selling_fee=0.05, inventory_capacity=2, pack_outcome=outcome,)
 
 
 def test_transaction_ledger_matches_hand_calculations(market):
     initial = PortfolioSnapshot(cash=100.0, sealed_count=0)
-    outcome = PackOutcome(outcome_id=PackOutcomeId.MEDIUM_VALUE, base_gross_value=20.0, gross_value=20.0)
+    outcome = PackOutcome(outcome_id=PackOutcomeId.ROOKIE_BUNDLE, base_gross_value=20.0, gross_value=20.0)
     steps = [
         # Action, pack outcome, cash after, packs after, fee paid.
         (Action.BUY_PACK, None, 90.0, 1, 0.0),
