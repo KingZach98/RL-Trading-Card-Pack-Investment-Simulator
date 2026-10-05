@@ -54,7 +54,7 @@ column and update `docs/spec.md` in the same pull request.
 | PF01-D18 | Early termination | Do not terminate because cash is low or inventory is empty; end only at the fixed task horizon. | Proposed — pending team review | |
 | PF01-D19 | Reward | `(V_next - V_current) / V_initial`, with no separate terminal bonus. | Proposed — pending team review | |
 | PF01-D20 | Discount factor | `gamma = 1.0` so cumulative reward equals proportional final portfolio gain. | Proposed — pending team review | |
-| PF01-D21 | Pack outcomes | Probabilities `0.70/0.25/0.05` with base gross values `200/1,000/8,000` virtual kr. | Proposed — pending team review | |
+| PF01-D21 | Pack outcomes | Probabilities `0.70/0.25/0.05` with base gross values `200/1,000/8,000` virtual kr. | Replaced | Project owner chose to keep the current four-outcome config on 2026-10-05. See PF09-D01 for the exact replacement. This does not complete team sign-off. |
 | PF01-D22 | Market quotes | `LOW: 800, 0.75`; `NORMAL: 1,000, 1.00`; `HIGH: 1,200, 1.60`, where each pair is sealed ask and card multiplier. | Proposed — pending team review | |
 | PF01-D23 | Market transitions | `LOW -> 0.70/0.25/0.05`; `NORMAL -> 0.15/0.70/0.15`; `HIGH -> 0.05/0.25/0.70`, ordered Low/Normal/High. | Proposed — pending team review | |
 | PF01-D24 | Randomness | Separate deterministic market and pack streams derived from one scenario seed; unused timestep pack draws do not shift later draws. | Proposed — pending team review | |
@@ -133,7 +133,11 @@ and affected tests together.
 
 | Change ID | Date | Decision/spec section | Old value/rule | New value/rule | Reason | Approved by | Version impact |
 |---|---|---|---|---|---|---|---|
-| | | | | | | | |
+| PF09-D01 | 2026-10-05 | PF01-D21; spec Section 8; interface Section 5.2 | Shared IDs `LOW_VALUE`, `MEDIUM_VALUE`, `HIGH_VALUE`; proposed odds `0.70/0.25/0.05` and values `200/1,000/8,000` | Keep configured IDs `base_bundle`, `rookie_bundle`, `autograph_bundle`, `premium_bundle`; odds `0.70/0.20/0.09/0.01`; base values `5/15/75/250` simulation units | Match shared pack results to the existing sampler for PF-09 without changing its draws | Project owner, via chat | Interface `2.0`; step info `2.0`; observation and evaluation row schemas stay `1.0` |
+
+PF09-D01 records the project owner's choice for Issue #9. It does not claim
+that all four team members have signed off on PF-01. The config files and
+seeded scenario paths do not change in this prep batch.
 
 After the PF-20 experimental freeze, any simulator change must create a new
 version/configuration hash and rerun every affected comparison.

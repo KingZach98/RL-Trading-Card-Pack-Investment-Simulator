@@ -215,13 +215,16 @@ truncation and must be handled separately.
 
 ## 8. Synthetic pack model
 
-One opening samples a complete pack outcome from this proposed distribution:
+One opening samples a complete pack outcome from `configs/nfl_pack.json`.
+For PF-09, the project owner chose to keep this current distribution. See
+change `PF09-D01` in `docs/decisions.md`.
 
 | Outcome | Probability | Base gross bundle value | Status |
 |---|---:|---:|---|
-| `LOW_VALUE` | 0.70 | 200 virtual kr | Proposed — pending team review |
-| `MEDIUM_VALUE` | 0.25 | 1,000 virtual kr | Proposed — pending team review |
-| `HIGH_VALUE` | 0.05 | 8,000 virtual kr | Proposed — pending team review |
+| `base_bundle` | 0.70 | 5 simulation units | Retained for PF-09 |
+| `rookie_bundle` | 0.20 | 15 simulation units | Retained for PF-09 |
+| `autograph_bundle` | 0.09 | 75 simulation units | Retained for PF-09 |
+| `premium_bundle` | 0.01 | 250 simulation units | Retained for PF-09 |
 
 In regime `m`, gross opened value is:
 
@@ -234,9 +237,9 @@ They are not official rarity names, measured NFL pull rates, or observed resale
 values. Draws are independent and with replacement. The sampler does not apply
 fees, mutate the portfolio, choose an action, or reveal unopened outcomes.
 
-As an analytical check, the proposed distribution has expected gross value
-`790` virtual kr at multiplier `1.0`, or expected net proceeds of `750.50`
-virtual kr with the proposed 5% fee. These are derived checks, not additional
+As an analytical check, this distribution has expected gross value
+`15.75` simulation units at multiplier `1.0`, or expected net proceeds of
+`14.9625` simulation units with a 5% fee. These are derived checks, not additional
 configuration settings.
 
 ## 9. Synthetic market model

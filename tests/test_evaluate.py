@@ -152,7 +152,7 @@ def make_step(**changes: object) -> StepInfo:
 
 
 def test_fixture_policy_completes_full_fake_episode():
-    fixture = load_fixture("contract_exchange_v1.json")
+    fixture = load_fixture("contract_exchange_v2.json")
     observation = np.asarray(fixture["observation"], dtype=np.float32)
     step = StepInfo.from_dict(fixture["step_info"])
     env = FakeEnv(observation, [step])
@@ -251,7 +251,7 @@ def test_policy_receives_only_observation_and_evaluation_does_not_modify_policy(
         def fit_preprocessing(self, *_args, **_kwargs):
             raise AssertionError("evaluate_episode must not fit preprocessing")
 
-    fixture = load_fixture("contract_exchange_v1.json")
+    fixture = load_fixture("contract_exchange_v2.json")
     observation = np.asarray(fixture["observation"], dtype=np.float32)
     step = StepInfo.from_dict(fixture["step_info"])
     env = FakeEnv(observation, [step])
@@ -268,7 +268,7 @@ def test_policy_receives_only_observation_and_evaluation_does_not_modify_policy(
 
 
 def test_reward_mismatch_between_env_return_and_step_info_is_rejected():
-    fixture = load_fixture("contract_exchange_v1.json")
+    fixture = load_fixture("contract_exchange_v2.json")
     observation = np.asarray(fixture["observation"], dtype=np.float32)
     step = StepInfo.from_dict(fixture["step_info"])
     env = FakeEnv(observation, [step], reward_overrides=[step.reward + 1.0])
@@ -281,7 +281,7 @@ def test_reward_mismatch_between_env_return_and_step_info_is_rejected():
 
 
 def test_requested_action_mismatch_is_rejected():
-    fixture = load_fixture("contract_exchange_v1.json")
+    fixture = load_fixture("contract_exchange_v2.json")
     observation = np.asarray(fixture["observation"], dtype=np.float32)
     step = make_step(
         requested_action=Action.BUY_PACK,
@@ -298,7 +298,7 @@ def test_requested_action_mismatch_is_rejected():
 
 
 def test_truncated_episode_is_rejected_by_pf03_evaluation_row_schema():
-    fixture = load_fixture("contract_exchange_v1.json")
+    fixture = load_fixture("contract_exchange_v2.json")
     observation = np.asarray(fixture["observation"], dtype=np.float32)
     step = StepInfo.from_dict(fixture["step_info"])
     env = FakeEnv(
@@ -313,7 +313,7 @@ def test_truncated_episode_is_rejected_by_pf03_evaluation_row_schema():
 
 
 def test_jsonl_output_records_validate_with_pf03_schemas(tmp_path):
-    fixture = load_fixture("contract_exchange_v1.json")
+    fixture = load_fixture("contract_exchange_v2.json")
     observation = np.asarray(fixture["observation"], dtype=np.float32)
     step = StepInfo.from_dict(fixture["step_info"])
     result = evaluate_episode(
@@ -332,7 +332,7 @@ def test_jsonl_output_records_validate_with_pf03_schemas(tmp_path):
 
 
 def test_multiple_rows_keep_model_seed_and_scenario_identity_distinct():
-    fixture = load_fixture("contract_exchange_v1.json")
+    fixture = load_fixture("contract_exchange_v2.json")
     observation = np.asarray(fixture["observation"], dtype=np.float32)
     step = StepInfo.from_dict(fixture["step_info"])
     metadata_a = metadata_from_fixture(fixture)

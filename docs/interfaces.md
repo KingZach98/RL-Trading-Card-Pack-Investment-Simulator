@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | PF task | PF-03 |
-| Status | Frozen for Version 1 |
-| Interface version | `1.0` |
+| Status | Frozen for MVP |
+| Interface version | `2.0` |
 | Observation schema version | `1.0` |
-| Step info schema version | `1.0` |
+| Step info schema version | `2.0` |
 | Evaluation row schema version | `1.0` |
 | Source specification | [`docs/spec.md`](spec.md) |
 | Decision record | [`docs/decisions.md`](decisions.md) |
@@ -33,15 +33,15 @@ The matching Python types live in `src/packfolio/types.py`.
 - All numbers must be finite. JSON must not contain `NaN` or `Infinity`.
 - An optional Python value uses `None`. Its JSON value is `null`. CSV leaves
   the field empty.
-- Enum names use upper snake case. JSON and CSV store the enum name as text,
+- Python enum names use upper snake case. JSON and CSV store the enum value as text,
   except actions, which use their integer IDs.
 
 The following constants name the current contracts:
 
 ```python
-INTERFACE_VERSION = "1.0"
+INTERFACE_VERSION = "2.0"
 OBSERVATION_SCHEMA_VERSION = "1.0"
-STEP_INFO_SCHEMA_VERSION = "1.0"
+STEP_INFO_SCHEMA_VERSION = "2.0"
 EVALUATION_ROW_SCHEMA_VERSION = "1.0"
 ```
 
@@ -140,11 +140,17 @@ but a policy receives the observation rather than this record.
 
 ### 5.2 Pack outcome
 
-`PackOutcomeId` is a `StrEnum` with these values:
+`PackOutcomeId` is a `StrEnum` with these names and values:
 
-- `LOW_VALUE`
-- `MEDIUM_VALUE`
-- `HIGH_VALUE`
+| Python name | Serialized value |
+|---|---|
+| `BASE_BUNDLE` | `base_bundle` |
+| `ROOKIE_BUNDLE` | `rookie_bundle` |
+| `AUTOGRAPH_BUNDLE` | `autograph_bundle` |
+| `PREMIUM_BUNDLE` | `premium_bundle` |
+
+These values match the outcome IDs in `configs/nfl_pack.json`. The environment
+uses the same IDs when it passes a sampled pack to the portfolio and step log.
 
 `PackOutcome` has these fields:
 
@@ -250,14 +256,45 @@ reset(seed=None, options=None) -> (observation, info)
 step(action) -> (observation, reward, terminated, truncated, info)
 ```
 
+PF-09 exposes `PackfolioEnv` from `packfolio.env`. Construct it with a validated
+`EnvironmentConfig` and two required, positive settings:
+
+```python
+env = PackfolioEnv(config, inventory_capacity=10, reference_price=10.0)
+```
+
+Here, `10` is the inventory limit and `10.0` is a reference price in the same
+units as the configured quotes. These are explicit inputs, not hidden defaults.
+The current config hash covers `EnvironmentConfig` only. Before running
+experiments, the recorded experiment settings must also include the capacity
+and reference price, and policies must use the same normalization settings.
+
+Reset restores the configured initial cash, zero sealed packs, timestep zero,
+and the configured initial market regime. It accepts no custom reset options;
+`options=None` and `options={}` both work.
+
 During evaluation, `evaluate.py` calls `reset(seed=scenario_seed)` and keeps the
-matching `scenario_id`. The environment asks `scenarios.py` to build the full
-private `Scenario` before it returns the first observation. The same seed and
-config must build the same scenario. `reset()` returns an empty `info` mapping
-in Version 1.
+matching `scenario_id`. The environment creates a private runtime
+`scenarios.Scenario` before it returns the first observation. The same seed and
+config must replay the same scenario. An explicit seed is passed through
+unchanged. With `seed=None`, reset draws an episode seed from the environment's
+existing Gymnasium random generator. `reset()` returns an empty `info` mapping
+in Version 1, with no seed, scenario ID, or unopened pack result.
 
 `step()` returns its normal Gymnasium values. Its `info` mapping uses the
 `StepInfo` fields below. Policies must not receive this mapping.
+
+At the PF-09 handoff, `step()` handles all four actions at the current quotes,
+then advances the scenario once. An infeasible action executes `HOLD` and still
+advances time. Invalid action IDs and types fail before any action or advance.
+The step log records both actions and the portfolio values at the current and
+next quotes.
+
+PF-09 returns a temporary reward of `0.0` and stops at the scenario horizon.
+Remaining inventory stays sealed. PF-10 will add the value-change reward and
+terminal liquidation, including the final observation rule in Section 4 and
+the combined fees in Section 5.4. Do not use this handoff for training or final
+policy comparisons until PF-10 is complete.
 
 `TerminationReason` is a `StrEnum` with these values:
 
@@ -289,8 +326,9 @@ truncation rule must add its reason through a schema change.
 | `reward` | `float` | Reward returned by `step()` |
 | `termination_reason` | `TerminationReason \| None` | Present only on the last step |
 
-The Python `info` mapping stores action IDs as integers and enum values as their
-text names. It uses `None` for the two pack fields when no pack opens. JSON
+The Python `info` mapping stores action IDs as integers and enum values as
+text. Pack outcome IDs use the lowercase values in Section 5.2. It uses `None`
+for the two pack fields when no pack opens. JSON
 serialization changes `None` to `null`. An out-of-range action raises before
 the environment creates `StepInfo`.
 
@@ -401,9 +439,9 @@ PF-03 uses three small JSON fixtures:
 
 | File | Purpose |
 |---|---|
-| `tests/fixtures/market_snapshot_v1.json` | Proves that market data builds the expected observation values |
-| `tests/fixtures/pack_outcome_v1.json` | Proves that a pack result can pass to the environment without portfolio data |
-| `tests/fixtures/contract_exchange_v1.json` | Proves that a one-step completed episode uses one policy, step, and evaluation contract |
+| `tests/fixtures/market_snapshot_v2.json` | Proves that market data builds the expected observation values |
+| `tests/fixtures/pack_outcome_v2.json` | Proves that a pack result can pass to the environment without portfolio data |
+| `tests/fixtures/contract_exchange_v2.json` | Proves that a one-step completed episode uses one policy, step, and evaluation contract |
 
 The market and pack fixtures have a top-level `interface_version`. The exchange
 fixture has an `interface_version` plus nested `schema_version` values for its
@@ -422,7 +460,7 @@ The contract test must prove these points:
 
 ## 12. Version changes
 
-A change is breaking when it changes an action ID, observation position,
+A change is breaking when it changes an action ID, enum value, observation position,
 observation meaning, dtype, required field name, required field type,
 information boundary, or state owner. A breaking change raises the related
 major schema version, such as `1.0` to `2.0`.
@@ -442,3 +480,17 @@ change behavior needs no version change.
 Each schema change must update this document, `types.py`, fixtures, and contract
 tests in the same commit. A breaking observation or action change also marks
 older policy checkpoints as incompatible unless a tested conversion exists.
+
+### 12.1 Interface 2.0: pack outcome IDs
+
+For PF-09, the project owner chose to keep the four outcomes in the current
+pack config. They replace the three old shared IDs: `LOW_VALUE`,
+`MEDIUM_VALUE`, and `HIGH_VALUE`. See change `PF09-D01` in `docs/decisions.md`.
+
+This raises the interface and step info versions to `2.0`. Loaders reject old
+step info version `1.0` and old pack IDs. There is no automatic conversion:
+three old categories do not map to four current outcomes.
+
+The action IDs and observation stay the same. The observation and evaluation
+row schemas remain `1.0`; each new evaluation row records interface `2.0`.
+The pack distribution, config hash, and seeded scenario paths stay the same.
