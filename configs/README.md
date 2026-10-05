@@ -7,6 +7,16 @@ relative to its own directory. These settings do not change the existing
 reference market defaults. The fee is configuration only; scenario draws
 remain gross, with fees and cash changes handled by the portfolio/environment.
 
+`agent.yaml` contains DQN-only settings (seed, step budget, network size,
+replay, optimizer, target updates, exploration, and gradient clipping). It is
+loaded separately from the environment file, so changing a learning
+hyperparameter does not modify market assumptions or their configuration hash.
+The discount factor is fixed at `1.0` to match the final portfolio value
+objective. Run training from the repository root with
+`uv run --locked --extra agent --extra dev python -m packfolio.train`; every run
+stores copies of both input files, the resolved environment, its checkpoint,
+episode metrics, and a manifest in a unique directory under `runs/`.
+
 Split manifests are separate files, with no implicit final-test loading:
 
 | Manifest | Owner | Seeds | Purpose |

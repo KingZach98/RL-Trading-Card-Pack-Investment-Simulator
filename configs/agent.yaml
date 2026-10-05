@@ -1,0 +1,13 @@
+seed: 20261005
+total_steps: 2000
+hidden_layer_widths: [64, 64]
+learning_rate: 0.001
+gamma: 1.0
+replay_capacity: 10000
+batch_size: 64
+learning_starts: 64
+target_update_interval: 250
+epsilon_start: 1.0
+epsilon_end: 0.05
+epsilon_decay_steps: 1500
+gradient_clip_norm: 10.0
