@@ -1,0 +1,8 @@
+{
+  "split": "validation",
+  "owner": "Nasir",
+  "environment_config": "../environment.json",
+  "config_hash": "57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330",
+  "simulator_version": "packfolio-scenarios-v1",
+  "seeds": [2001, 2002, 2003]
+}

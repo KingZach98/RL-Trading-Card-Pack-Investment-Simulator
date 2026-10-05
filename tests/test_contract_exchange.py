@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from packfolio.packs import load_pack_config
 from packfolio.types import (
     INTERFACE_VERSION,
     OBSERVATION_SCHEMA_VERSION,
@@ -15,6 +16,7 @@ from packfolio.types import (
     MarketSnapshot,
     ObservationIndex,
     PackOutcome,
+    PackOutcomeId,
     StepInfo,
 )
 
@@ -40,7 +42,7 @@ class HoldPolicy:
 
 
 def test_market_fixture_matches_public_observation_fields():
-    fixture = load_fixture("market_snapshot_v1.json")
+    fixture = load_fixture("market_snapshot_v2.json")
     assert fixture["interface_version"] == INTERFACE_VERSION
 
     snapshot = MarketSnapshot.from_dict(fixture["market_snapshot"])
@@ -61,7 +63,7 @@ def test_market_fixture_matches_public_observation_fields():
 
 
 def test_pack_fixture_has_no_portfolio_state():
-    fixture = load_fixture("pack_outcome_v1.json")
+    fixture = load_fixture("pack_outcome_v2.json")
     assert fixture["interface_version"] == INTERFACE_VERSION
 
     outcome_data = fixture["pack_outcome"]
@@ -73,9 +75,22 @@ def test_pack_fixture_has_no_portfolio_state():
     assert "sealed_count" not in outcome_data
 
 
+def test_shared_pack_outcomes_match_the_pack_config():
+    config = load_pack_config(Path(__file__).resolve().parents[1] / "configs" / "nfl_pack.json")
+    assert {outcome.outcome_id for outcome in config.outcomes} == {item.value for item in PackOutcomeId}
+    for configured in config.outcomes:
+        outcome = PackOutcome(
+            outcome_id=PackOutcomeId(configured.outcome_id),
+            base_gross_value=configured.base_bundle_value,
+            gross_value=configured.base_bundle_value * 1.6,
+        )
+        assert outcome.to_dict()["outcome_id"] == configured.outcome_id
+        assert PackOutcome.from_dict(outcome.to_dict()) == outcome
+
+
 def test_fixture_records_reject_bad_fields():
-    market_data = load_fixture("market_snapshot_v1.json")["market_snapshot"]
-    pack_data = load_fixture("pack_outcome_v1.json")["pack_outcome"]
+    market_data = load_fixture("market_snapshot_v2.json")["market_snapshot"]
+    pack_data = load_fixture("pack_outcome_v2.json")["pack_outcome"]
 
     missing_pack_ask = dict(market_data)
     missing_pack_ask.pop("pack_ask")
@@ -99,7 +114,7 @@ def test_fixture_records_reject_bad_fields():
 
 
 def test_fixture_exchange_between_policy_environment_and_evaluator():
-    fixture = load_fixture("contract_exchange_v1.json")
+    fixture = load_fixture("contract_exchange_v2.json")
     assert fixture["interface_version"] == INTERFACE_VERSION
     assert fixture["observation_schema_version"] == OBSERVATION_SCHEMA_VERSION
 

@@ -7,9 +7,9 @@ from numbers import Integral, Real
 from typing import Self, TypeVar
 
 
-INTERFACE_VERSION = "1.0"
+INTERFACE_VERSION = "2.0"
 OBSERVATION_SCHEMA_VERSION = "1.0"
-STEP_INFO_SCHEMA_VERSION = "1.0"
+STEP_INFO_SCHEMA_VERSION = "2.0"
 EVALUATION_ROW_SCHEMA_VERSION = "1.0"
 
 
@@ -38,9 +38,10 @@ class MarketRegime(StrEnum):
     HIGH = "HIGH"
 
 class PackOutcomeId(StrEnum):
-    LOW_VALUE = "LOW_VALUE"
-    MEDIUM_VALUE = "MEDIUM_VALUE"
-    HIGH_VALUE = "HIGH_VALUE"
+    BASE_BUNDLE = "base_bundle"
+    ROOKIE_BUNDLE = "rookie_bundle"
+    AUTOGRAPH_BUNDLE = "autograph_bundle"
+    PREMIUM_BUNDLE = "premium_bundle"
 
 class TerminationReason(StrEnum):
     HORIZON = "HORIZON"
@@ -453,3 +454,4 @@ __all__ = [
     "StepInfo",
     "TerminationReason",
 ]
+

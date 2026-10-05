@@ -2,8 +2,9 @@
 
 Python package: `packfolio` (Python 3.12). Core dependencies are NumPy 2.2.6,
 Gymnasium 1.1.1, and Matplotlib 3.10.3. The optional DQN dependency is
-PyTorch 2.7.1; tests use pytest 8.4.1. The pack sampler is implemented;
-the other simulator modules are currently placeholders.
+PyTorch 2.7.1; tests use pytest 8.4.1. Pack sampling, market transitions,
+shared contracts, reproducible scenarios, and the Gymnasium environment are
+implemented. The DQN agent and training modules are still placeholders.
 
 ## Local setup
 
@@ -11,29 +12,68 @@ Install Python 3.12 and clone the repository. From the repository root, on
 Windows (PowerShell):
 
 ```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install uv==0.9.1
-.\.venv\Scripts\uv.exe sync --locked --extra dev
-.\.venv\Scripts\uv.exe run --locked pytest -q
+py -m pip install --user uv==0.9.1
+py -m uv sync --locked --extra dev
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
-On macOS or Linux:
+On macOS or Linux, install uv 0.9.1 outside the project environment using the
+[uv installation guide](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```sh
-python3.12 -m venv .venv
-.venv/bin/python -m pip install uv==0.9.1
-.venv/bin/uv sync --locked --extra dev
-.venv/bin/uv run --locked pytest -q
+uv sync --locked --extra dev
+.venv/bin/python -m pytest -q
 ```
 
 Add `--extra agent` to `uv sync` when developing the DQN agent. PyTorch is
 not installed by default. The committed `uv.lock` pins the full dependency
-graph; keep `--locked` on installs and test runs to detect stale locks. Run
+graph; use `--locked` on `uv sync` to reject a stale lockfile. Run
 `uv lock` and commit the updated lock whenever dependencies change.
+
+On Windows, keep uv outside `.venv` and call it with `py -m uv`. A sync can
+[remove tools installed inside the managed environment](https://docs.astral.sh/uv/concepts/projects/sync/#handling-of-extraneous-packages). The project itself
+still runs with `.venv\Scripts\python.exe`, which uses Python 3.12.
 
 Local secrets belong in `.env` (or `.env.*`), and generated results in
 `outputs/`, `runs/`, or `checkpoints/`; these paths and model weights are
 ignored by Git. Put versioned, non-secret scenario settings in `configs/`.
+
+## Environment compatibility checks (PF-11)
+
+The selected agent stack is a custom DQN using PyTorch, not Stable-Baselines3.
+Install the locked agent dependencies, then run the mandatory check from the
+repository root on Windows:
+
+```powershell
+py -m uv sync --locked --extra dev --extra agent
+.\.venv\Scripts\python.exe -m packfolio.check_env
+```
+
+The command runs Gymnasium's checker, then sends observations through a small,
+untrained CPU network with eight inputs and four action outputs. It converts
+the selected action to a scalar, runs a full episode, checks the end guard,
+and replays the same seed. It also checks conversion of rewards to tensors.
+This follows the tensor/action boundary in the
+[PyTorch DQN tutorial](https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html).
+It does not train a DQN or test the future agent's quality.
+
+Expect `Gymnasium and PyTorch boundary checks passed (100 steps, replay matched)`
+with the shipped config. The command exits with an error if PyTorch is missing.
+It prints the config hash, seed, inventory capacity, and reference price.
+Use `--config`, `--seed`, `--inventory-capacity`, and `--reference-price` to
+check other settings. Only the known warning about unbounded observation
+maxima is hidden; other Gymnasium checker warnings stay visible.
+
+Run the saved environment checks with:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q tests/test_env.py tests/test_env_actions.py tests/test_env_rewards.py tests/test_env_terminal.py tests/test_accounting.py tests/test_check_env.py -p no:cacheprovider
+```
+
+PyTorch-specific pytest cases skip when the optional dependency is absent.
+Those skips do not count as a compatibility pass: run the mandatory command
+with the agent extra before signing off PF-11. Nasir's actual DQN integration
+still needs its own tests when that agent exists.
 
 ## Whole-pack sampling and expected value
 
