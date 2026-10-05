@@ -86,8 +86,8 @@ class PackfolioEnv(gym.Env[np.ndarray, int]):
         value_after = liquidation_value(self._portfolio, market_after, selling_fee=selling_fee)
         terminated = self._scenario.done
 
-        # PF-10 will add the value-change reward and terminal liquidation.
-        reward = 0.0
+        # Reset starts with cash only, so initial_cash is the starting value.
+        reward = (value_after - value_before) / self._config.initial_cash
         step_info = StepInfo(
             step_index=step_index,
             requested_action=requested_action,
