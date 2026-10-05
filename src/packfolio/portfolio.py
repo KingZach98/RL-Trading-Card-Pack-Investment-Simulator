@@ -33,9 +33,7 @@ def apply_action(portfolio: PortfolioSnapshot, action: Action, market: MarketSna
     if portfolio.sealed_count > inventory_capacity:
         raise ValueError("sealed_count exceeds inventory_capacity")
     fee_rate = _check_selling_fee(selling_fee)
-    if action is Action.OPEN_AND_SELL:
-        raise NotImplementedError("OPEN_AND_SELL is not implemented yet")
-    if pack_outcome is not None:
+    if action is not Action.OPEN_AND_SELL and pack_outcome is not None:
         raise ValueError("pack_outcome is only allowed for OPEN_AND_SELL")
 
     cash = portfolio.cash
@@ -49,10 +47,17 @@ def apply_action(portfolio: PortfolioSnapshot, action: Action, market: MarketSna
             raise ValueError("inventory is at capacity")
         cash -= market.pack_ask
         sealed_count += 1
-    elif action is Action.SELL_PACK:
+    elif action in (Action.SELL_PACK, Action.OPEN_AND_SELL):
         if sealed_count == 0:
-            raise ValueError("SELL_PACK requires a sealed pack")
-        proceeds, fee_paid = _sale_amounts(market.pack_ask, fee_rate)
+            raise ValueError(f"{action.name} requires a sealed pack")
+        gross_value = market.pack_ask
+        if action is Action.OPEN_AND_SELL:
+            if pack_outcome is None:
+                raise ValueError("OPEN_AND_SELL requires a pack outcome")
+            if not isinstance(pack_outcome, PackOutcome):
+                raise TypeError("pack_outcome must be PackOutcome")
+            gross_value = pack_outcome.gross_value
+        proceeds, fee_paid = _sale_amounts(gross_value, fee_rate)
         cash += proceeds
         sealed_count -= 1
     updated = PortfolioSnapshot(cash=cash, sealed_count=sealed_count)
