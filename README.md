@@ -137,23 +137,32 @@ occurs, and handles cash changes there. Saki uses `expected_gross_value` for
 the EV baseline. Neither function deducts fees, pack purchase costs, or changes
 cash.
 
-## Reproducible scenarios
+## DQN agent
 
-See [configuration and split handoff](configs/README.md) for seed ownership,
-versioning, paired draw slots, and the policy privacy boundary.
+Packfolio's DQN adapter uses the frozen eight-feature observation order and the
+four action IDs in `docs/interfaces.md`. Its fixed preprocessing divides the
+cash ratio by ten and leaves the other already-normalized features unchanged.
+It does not clip cash: observations representing cash above the initial budget
+remain distinct. Training code should use `preprocess_observations` too, so
+training and evaluation use the same order and scaling. Evaluation uses
+deterministic `argmax` over the four Q-values; ties select the lowest action ID.
+The agent does not add action masking.
 
-```python
-from packfolio.scenarios import Scenario, load_split_manifest
+DQN is a reasonable baseline for this problem because it has a small,
+fully-observed numerical state and a finite discrete action set, while the
+value of each action can depend on interactions among cash, inventory, market
+regime, and remaining horizon. Mnih et al. demonstrated deep Q-learning with a
+neural Q-function for discrete-action control; this project uses that
+value-based formulation, not their Atari architecture or experimental results
+([Mnih et al., *Nature* 518, 529–533 (2015)](https://doi.org/10.1038/nature14236)).
+This is a justified starting point, not evidence that DQN will outperform
+baselines on the simulator.
 
-training = load_split_manifest("configs/splits/training.json")
-scenario = Scenario(training.config, training.scenarios[0])
-current_market = scenario.current_market
-draw = scenario.open_pack()  # current timestep, first opening slot
-next_market = scenario.advance()
-```
-
-Nasir receives separate training and validation manifests; Saki controls the
-final-test manifest and validates all three splits for overlap before final
-evaluation. Opening extra packs cannot advance the market RNG or shift pack
-draw slots at future timesteps. Scenario identifiers encode the configuration
-hash and root seed; retain the matching config and simulator version for replay.
+The project code owns the observation validation/order, fixed feature scaling,
+8-to-4 network shape, and deterministic action adapter. The optional PyTorch
+dependency supplies the `Linear`/`ReLU` layers and tensor inference primitives;
+it does not provide the project-specific state/action contract or an
+environment. A caller can build or train the returned Q network and pass it to
+`DQNAgent.from_torch`; this module does not yet own an environment rollout,
+replay buffer, or optimizer loop. Install the optional `agent` extra to build
+or run a PyTorch-backed network.
