@@ -15,6 +15,7 @@ from packfolio.types import Action, OBSERVATION_SIZE, ObservationIndex
 
 ACTION_COUNT = len(Action)
 DEFAULT_HIDDEN_LAYER_WIDTHS = (64, 64)
+HIDDEN_LAYER_WIDTHS = DEFAULT_HIDDEN_LAYER_WIDTHS
 FEATURE_SCALE: NDArray[np.float32] = np.asarray(
     (0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0), dtype=np.float32
 )
@@ -30,7 +31,11 @@ class QNetwork(Protocol):
 def preprocess_observations(
     observations: NDArray[np.float32],
 ) -> NDArray[np.float32]:
-    """Apply fixed feature scaling shared by training and evaluation."""
+    """Apply fixed feature scaling shared by training and evaluation.
+
+    Cash is already expressed as a ratio of initial cash. Scaling it by ten
+    keeps typical values moderate without clipping higher, profitable states.
+    """
     if not isinstance(observations, np.ndarray):
         raise TypeError("observations must be a NumPy array")
     if observations.dtype != np.float32:
@@ -92,7 +97,12 @@ class _TorchQFunction:
 
 
 class DQNAgent:
-    """Deterministic action adapter from Q-values to the public Action enum."""
+    """Deterministic evaluation adapter for a four-output Q function.
+
+    The Q function accepts a preprocessed ``(batch, 8)`` float32 array and
+    returns one Q-value per action in ID order. Use :meth:`from_torch` for a
+    PyTorch network built or trained by the caller.
+    """
 
     def __init__(self, q_function: Callable[[NDArray[np.float32]], object]) -> None:
         if not callable(q_function):
@@ -101,6 +111,7 @@ class DQNAgent:
 
     @classmethod
     def from_torch(cls, network: QNetwork) -> DQNAgent:
+        """Create an inference adapter for a PyTorch Q network."""
         return cls(_TorchQFunction(network))
 
     def choose_action(self, observation: NDArray[np.float32]) -> Action:
@@ -162,6 +173,7 @@ __all__ = [
     "ACTION_COUNT",
     "ACTION_ORDER",
     "DEFAULT_HIDDEN_LAYER_WIDTHS",
+    "HIDDEN_LAYER_WIDTHS",
     "FEATURE_ORDER",
     "FEATURE_SCALE",
     "DQNAgent",
