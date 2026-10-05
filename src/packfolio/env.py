@@ -5,7 +5,7 @@ from gymnasium import spaces
 import numpy as np
 
 from packfolio.config import EnvironmentConfig, REGIME_ORDER, _integer, _positive_float
-from packfolio.portfolio import apply_action, liquidation_value
+from packfolio.portfolio import apply_action, liquidate, liquidation_value
 from packfolio.scenarios import Scenario, ScenarioSpec
 from packfolio.types import Action, OBSERVATION_SIZE, PackOutcome, PackOutcomeId, PortfolioSnapshot, StepInfo, TerminationReason
 
@@ -83,8 +83,13 @@ class PackfolioEnv(gym.Env[np.ndarray, int]):
         )
         market_after = self._scenario.advance()
         self._portfolio = update.portfolio
-        value_after = liquidation_value(self._portfolio, market_after, selling_fee=selling_fee)
         terminated = self._scenario.done
+        fee_paid = update.fee_paid
+        if terminated:
+            terminal_update = liquidate(self._portfolio, market_after, selling_fee=selling_fee)
+            self._portfolio = terminal_update.portfolio
+            fee_paid += terminal_update.fee_paid
+        value_after = liquidation_value(self._portfolio, market_after, selling_fee=selling_fee)
 
         # Reset starts with cash only, so initial_cash is the starting value.
         reward = (value_after - value_before) / self._config.initial_cash
@@ -101,7 +106,7 @@ class PackfolioEnv(gym.Env[np.ndarray, int]):
             sealed_count_after=self._portfolio.sealed_count,
             pack_outcome_id=pack_outcome.outcome_id if pack_outcome is not None else None,
             gross_opened_value=pack_outcome.gross_value if pack_outcome is not None else None,
-            fee_paid=update.fee_paid,
+            fee_paid=fee_paid,
             portfolio_value_before=value_before,
             portfolio_value_after=value_after,
             reward=reward,

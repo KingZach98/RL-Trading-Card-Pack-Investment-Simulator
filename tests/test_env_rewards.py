@@ -5,7 +5,7 @@ import pytest
 
 from packfolio.config import load_environment_config
 from packfolio.env import PackfolioEnv
-from packfolio.types import Action, MarketRegime
+from packfolio.types import Action, MarketRegime, ObservationIndex
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def run_episode(env, actions, seed):
     trace = []
     previous_value = env._config.initial_cash
     for index in range(env._config.horizon):
-        _, reward, terminated, truncated, info = env.step(actions[index % len(actions)])
+        observation, reward, terminated, truncated, info = env.step(actions[index % len(actions)])
         assert reward == info["reward"]
         assert info["portfolio_value_before"] == pytest.approx(previous_value)
         assert terminated is (index == env._config.horizon - 1)
@@ -40,8 +40,11 @@ def run_episode(env, actions, seed):
         previous_value = info["portfolio_value_after"]
         trace.append(info)
     initial_value = env._config.initial_cash
-    assert sum(step["reward"] for step in trace) == pytest.approx(
-        (trace[-1]["portfolio_value_after"] - initial_value) / initial_value)
+    assert trace[-1]["sealed_count_after"] == 0
+    assert trace[-1]["cash_after"] == pytest.approx(trace[-1]["portfolio_value_after"])
+    assert observation[ObservationIndex.SEALED_COUNT_RATIO] == 0
+    assert observation[ObservationIndex.REMAINING_STEPS_RATIO] == 0
+    assert sum(step["reward"] for step in trace) == pytest.approx((trace[-1]["cash_after"] - initial_value) / initial_value)
     return trace
 
 

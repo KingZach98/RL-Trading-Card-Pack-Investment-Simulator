@@ -296,12 +296,17 @@ starting portfolio value. The returned reward and `StepInfo.reward` match.
 HOLD and infeasible actions can gain or lose value when the market moves.
 There is no extra action penalty or final portfolio bonus.
 
-The first PF-10 batch stops at the scenario horizon but leaves remaining
-inventory sealed. The next batch will add terminal liquidation, including the
-final observation rule in Section 4 and the combined fees in Section 5.4.
-Until then, a full episode's reward sum equals its net portfolio gain divided
-by starting value; final value still includes sealed assets. Do not use this
-handoff for training or final policy comparisons until PF-10 is complete.
+At the horizon, the environment finishes the requested action, advances the
+market once, then calls `portfolio.liquidate()` at the final market quote.
+It adds the liquidation fee to the action fee and uses the final cash and
+zero inventory when it builds reward, step info, and the final observation.
+The automatic sale does not replace the logged requested or executed action.
+
+The final step returns `terminated=True`, `truncated=False`, and
+`termination_reason=HORIZON`. Inventory and remaining time are both zero.
+Any further step requires a reset. Selling the sealed assets changes them into
+cash without changing their net value or charging a second fee. The reward sum
+equals `(final_cash - initial_cash) / initial_cash`, apart from float rounding.
 
 `TerminationReason` is a `StrEnum` with these values:
 
