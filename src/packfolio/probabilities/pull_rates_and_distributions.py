@@ -18,33 +18,22 @@ BOX_CONTENTS = {
     "inserts": 4,
 }
 
-# numbered types and their id
+# Approximate pull probabilities for numbered parallels.
+# Panini does not provide exact pull odds for each parallel, so the
+# distribution is derived from the official serial-numbered print runs.
+# Assumes that all parallels have the same checklist size.
+# Example: Orange /249 is ~24.0% of the numbered parallel population.
+
 NUMBERED_PARALLELS = {
-    "orange": 249,
-    "blue_wave": 199,
-    "hyper": 175,
-    "red_wave": 149,
-    "blue_ice": 99,
-    "green_scope": 75,
-    "purple_power": 49,
-    "camo": 25,
-    "gold": 10,
-    "gold_vinyl": 5,
-    "black_finite": 1,
-}
-
-### NONE FOR NOW ###
-
-NUMBERED_PULL_RATES = {
-    "orange": None,
-    "blue_wave": None,
-    "hyper": None,
-    "red_wave": None,
-    "blue_ice": None,
-    "green_scope": None,
-    "purple_power": None,
-    "camo": None,
-    "gold": None,
-    "gold_vinyl": None,
-    "black_finite": None,
-}
+    'orange': 0.24034749034749034,
+    'blue_wave': 0.1920849420849421,
+    'hyper': 0.16891891891891891,
+    'red_wave': 0.1438223938223938,
+    'blue_ice': 0.09555984555984556,
+    'green_scope': 0.07239382239382239, 
+    'purple_power': 0.0472972972972973, 
+    'camo': 0.02413127413127413, 
+    'gold': 0.009652509652509652, 
+    'gold_vinyl': 0.004826254826254826, 
+    'black_finite': 0.0009652509652509653
+    }
