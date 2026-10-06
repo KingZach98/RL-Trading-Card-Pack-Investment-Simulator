@@ -28,7 +28,7 @@ def make_market() -> MarketSnapshot:
 
 
 def make_pack_outcome() -> PackOutcome:
-    return PackOutcome(outcome_id=PackOutcomeId.MEDIUM_VALUE,base_gross_value=1_000.0,gross_value=1_000.0,)
+    return PackOutcome(outcome_id=PackOutcomeId.ROOKIE_BUNDLE,base_gross_value=1_000.0,gross_value=1_000.0,)
 
 
 def make_step_info(**changes: object) -> StepInfo:
@@ -87,9 +87,9 @@ def make_evaluation_row(**changes: object) -> EvaluationRow:
 
 
 def test_contract_ids_and_versions_are_fixed():
-    assert INTERFACE_VERSION == "1.0"
+    assert INTERFACE_VERSION == "2.0"
     assert OBSERVATION_SCHEMA_VERSION == "1.0"
-    assert STEP_INFO_SCHEMA_VERSION == "1.0"
+    assert STEP_INFO_SCHEMA_VERSION == "2.0"
     assert EVALUATION_ROW_SCHEMA_VERSION == "1.0"
     assert OBSERVATION_SIZE == 8
 
@@ -101,7 +101,7 @@ def test_contract_ids_and_versions_are_fixed():
         "REGIME_NORMAL": 6,
         "REGIME_HIGH": 7,}
     assert [item.value for item in MarketRegime] == ["LOW", "NORMAL", "HIGH"]
-    assert [item.value for item in PackOutcomeId] == ["LOW_VALUE","MEDIUM_VALUE","HIGH_VALUE",]
+    assert [item.value for item in PackOutcomeId] == ["base_bundle", "rookie_bundle", "autograph_bundle", "premium_bundle"]
     assert [item.value for item in TerminationReason] == ["HORIZON"]
 
 
@@ -116,7 +116,7 @@ def test_shared_records_are_immutable_and_use_slots():
     "build_record, expected_error",
     [(lambda: MarketSnapshot(regime=MarketRegime.LOW,pack_ask=-1, card_value_multiplier=0.75,),ValueError,),
         (lambda: MarketSnapshot(regime=MarketRegime.LOW, pack_ask=float("inf"), card_value_multiplier=0.75,),ValueError,),
-        (lambda: PackOutcome(outcome_id=PackOutcomeId.LOW_VALUE, base_gross_value=200, gross_value=float("nan"),),ValueError,),
+        (lambda: PackOutcome(outcome_id=PackOutcomeId.BASE_BUNDLE, base_gross_value=200, gross_value=float("nan"),),ValueError,),
         (lambda: PortfolioSnapshot(cash=10_000, sealed_count=True), TypeError,),
         (lambda: PortfolioUpdate(portfolio=PortfolioSnapshot(cash=10_000, sealed_count=0),fee_paid=-1,), ValueError,),],)
 
@@ -148,13 +148,13 @@ def test_records_require_contract_enum_types():
         MarketSnapshot(regime="NORMAL",pack_ask=1_000,card_value_multiplier=1,)
 
     with pytest.raises(TypeError, match="outcome_id must be PackOutcomeId"):
-        PackOutcome(outcome_id="MEDIUM_VALUE",base_gross_value=1_000,gross_value=1_000,)
+        PackOutcome(outcome_id="rookie_bundle",base_gross_value=1_000,gross_value=1_000,)
 
 
 def test_step_info_round_trip_uses_public_values():
     step = make_step_info()
     data = step.to_dict()
-    assert data["schema_version"] == "1.0"
+    assert data["schema_version"] == "2.0"
     assert data["requested_action"] == 0
     assert data["regime_before"] == "NORMAL"
     assert data["pack_outcome_id"] is None
@@ -166,18 +166,42 @@ def test_step_info_accepts_an_infeasible_action():
     assert step.action_was_infeasible is True
 
 
-def test_step_info_records_an_opened_pack():
+@pytest.mark.parametrize("outcome_id", list(PackOutcomeId))
+def test_step_info_records_an_opened_pack(outcome_id):
     step = make_step_info(
         requested_action=Action.OPEN_AND_SELL,
         executed_action=Action.OPEN_AND_SELL,
         sealed_count_before=1,
-        pack_outcome_id=PackOutcomeId.MEDIUM_VALUE,
+        pack_outcome_id=outcome_id,
         gross_opened_value=1_000,
         fee_paid=50,
     )
 
     assert step.gross_opened_value == 1_000.0
-    assert step.to_dict()["pack_outcome_id"] == "MEDIUM_VALUE"
+    assert step.to_dict()["pack_outcome_id"] == outcome_id.value
+    assert StepInfo.from_dict(step.to_dict()) == step
+
+
+@pytest.mark.parametrize("outcome_id", ["LOW_VALUE", "MEDIUM_VALUE", "HIGH_VALUE"])
+def test_pack_outcome_loader_rejects_legacy_ids(outcome_id):
+    data = make_pack_outcome().to_dict()
+    data["outcome_id"] = outcome_id
+    with pytest.raises(ValueError, match="outcome_id has unknown value"):
+        PackOutcome.from_dict(data)
+
+
+@pytest.mark.parametrize("outcome_id", ["LOW_VALUE", "MEDIUM_VALUE", "HIGH_VALUE"])
+def test_step_info_loader_rejects_legacy_pack_ids(outcome_id):
+    data = make_step_info(
+        requested_action=Action.OPEN_AND_SELL,
+        executed_action=Action.OPEN_AND_SELL,
+        sealed_count_before=1,
+        pack_outcome_id=PackOutcomeId.ROOKIE_BUNDLE,
+        gross_opened_value=15.0,
+    ).to_dict()
+    data["pack_outcome_id"] = outcome_id
+    with pytest.raises(ValueError, match="pack_outcome_id has unknown value"):
+        StepInfo.from_dict(data)
 
 
 @pytest.mark.parametrize(
@@ -187,7 +211,7 @@ def test_step_info_records_an_opened_pack():
             ({"action_was_infeasible": True},"HOLD cannot be infeasible",),
             ({"requested_action": Action.BUY_PACK,"executed_action": Action.SELL_PACK,"action_was_infeasible": True,},"must execute HOLD",),
             ({"requested_action": Action.OPEN_AND_SELL, "executed_action": Action.OPEN_AND_SELL, },"pack result must appear",),
-            ({"pack_outcome_id": PackOutcomeId.LOW_VALUE,"gross_opened_value": 200, },"pack result must appear only",),
+            ({"pack_outcome_id": PackOutcomeId.BASE_BUNDLE,"gross_opened_value": 200, },"pack result must appear only",),
         ],)
 
 def test_step_info_rejects_impossible_action_results(changes, message):
@@ -208,8 +232,8 @@ def test_step_info_rejects_invalid_field_values():
 
 def test_step_info_loader_checks_versions_and_action_ids():
     wrong_version = make_step_info().to_dict()
-    wrong_version["schema_version"] = "2.0"
-    with pytest.raises(ValueError, match="schema_version must be '1.0'"):
+    wrong_version["schema_version"] = "1.0"
+    with pytest.raises(ValueError, match="schema_version must be '2.0'"):
         StepInfo.from_dict(wrong_version)
 
     boolean_action = make_step_info().to_dict()
@@ -222,7 +246,7 @@ def test_evaluation_row_round_trip_uses_schema_versions():
     row = make_evaluation_row()
     data = row.to_dict()
     assert data["schema_version"] == "1.0"
-    assert data["interface_version"] == "1.0"
+    assert data["interface_version"] == "2.0"
     assert data["observation_schema_version"] == "1.0"
     assert data["model_id"] is None
     assert data["termination_reason"] == "HORIZON"
@@ -274,8 +298,8 @@ def test_evaluation_row_rejects_invalid_run_details(changes, message):
 
 def test_evaluation_row_loader_checks_versions_and_fields():
     wrong_version = make_evaluation_row().to_dict()
-    wrong_version["interface_version"] = "2.0"
-    with pytest.raises(ValueError, match="interface_version must be '1.0'"):
+    wrong_version["interface_version"] = "1.0"
+    with pytest.raises(ValueError, match="interface_version must be '2.0'"):
         EvaluationRow.from_dict(wrong_version)
 
     missing_field = make_evaluation_row().to_dict()

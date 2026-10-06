@@ -16,8 +16,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-agent = ["torch==2.7.1"]
-dev = ["pytest==8.4.1"]
+agent = ["torch==2.7.1", "PyYAML==6.0.2"]
+dev = ["pytest==8.4.1", "PyYAML==6.0.2"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

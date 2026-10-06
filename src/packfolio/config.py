@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+import hashlib
+import json
 from math import isfinite
 from numbers import Real
+from pathlib import Path
 from types import MappingProxyType
 
+from packfolio.packs import PackConfig, load_pack_config
 from packfolio.types import MarketRegime
 
 
@@ -153,7 +157,141 @@ REFERENCE_MARKET_CONFIG = MarketConfig(
 )
 
 
+def _integer(value: object, name: str, *, minimum: int = 0) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
+    if value < minimum:
+        raise ValueError(f"{name} must be at least {minimum}")
+    return value
+
+
+def _json_record(data: object, keys: set[str], name: str) -> dict[str, object]:
+    if not isinstance(data, dict):
+        raise TypeError(f"{name} must be a JSON object")
+    if set(data) != keys:
+        raise ValueError(f"{name} must have exactly these fields: {', '.join(sorted(keys))}")
+    return data
+
+
+@dataclass(frozen=True, slots=True)
+class EnvironmentConfig:
+    """Validated, immutable experiment settings; no seed or random state."""
+
+    horizon: int
+    initial_cash: float
+    selling_fee_rate: float
+    market: MarketConfig
+    pack: PackConfig
+
+    def __post_init__(self) -> None:
+        _integer(self.horizon, "horizon", minimum=1)
+        object.__setattr__(self, "initial_cash", _positive_float(self.initial_cash, "initial_cash"))
+        fee = _probability(self.selling_fee_rate, "selling_fee_rate")
+        if fee > 1:
+            raise ValueError("selling_fee_rate must not exceed 1")
+        object.__setattr__(self, "selling_fee_rate", fee)
+        if not isinstance(self.market, MarketConfig):
+            raise TypeError("market must be MarketConfig")
+        if not isinstance(self.pack, PackConfig):
+            raise TypeError("pack must be PackConfig")
+        for quote in self.market.quotes.values():
+            for outcome in self.pack.outcomes:
+                if not isfinite(outcome.base_bundle_value * quote.card_value_multiplier):
+                    raise ValueError("market-scaled pack values must be finite")
+
+    def to_dict(self) -> dict[str, object]:
+        """Canonical content, including resolved pack data rather than its path."""
+        return {
+            "horizon": self.horizon,
+            "initial_cash": self.initial_cash,
+            "selling_fee_rate": self.selling_fee_rate,
+            "market": {
+                "initial_regime": self.market.initial_regime.value,
+                "quotes": {
+                    regime.value: {
+                        "pack_ask": self.market.quotes[regime].pack_ask,
+                        "card_value_multiplier": self.market.quotes[regime].card_value_multiplier,
+                    }
+                    for regime in REGIME_ORDER
+                },
+                "transition_matrix": {
+                    regime.value: list(self.market.transition_matrix[regime])
+                    for regime in REGIME_ORDER
+                },
+            },
+            "pack": {
+                "pack_id": self.pack.pack_id,
+                "cards_per_pack": self.pack.cards_per_pack,
+                "outcomes": [
+                    {
+                        "outcome_id": outcome.outcome_id,
+                        "probability": float(outcome.probability),
+                        "base_bundle_value": float(outcome.base_bundle_value),
+                        "contents": list(outcome.contents),
+                    }
+                    for outcome in self.pack.outcomes
+                ],
+            },
+        }
+
+    @property
+    def config_hash(self) -> str:
+        payload = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False)
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def load_environment_config(path: str | Path) -> EnvironmentConfig:
+    """Load strict JSON settings; pack_config is relative to this file."""
+    path = Path(path)
+    with path.open(encoding="utf-8") as file:
+        data = _json_record(
+            json.load(file),
+            {"horizon", "initial_cash", "selling_fee_rate", "market", "pack_config"},
+            "environment configuration",
+        )
+    market = _json_record(
+        data["market"], {"initial_regime", "quotes", "transition_matrix"}, "market"
+    )
+    quotes = _json_record(market["quotes"], {regime.value for regime in REGIME_ORDER}, "quotes")
+    matrix = _json_record(
+        market["transition_matrix"], {regime.value for regime in REGIME_ORDER}, "transition_matrix"
+    )
+    parsed_quotes = {}
+    for regime in REGIME_ORDER:
+        quote = _json_record(
+            quotes[regime.value], {"pack_ask", "card_value_multiplier"}, f"{regime.value} quote"
+        )
+        parsed_quotes[regime] = MarketQuote(
+            pack_ask=_positive_float(quote["pack_ask"], "pack_ask"),
+            card_value_multiplier=_positive_float(quote["card_value_multiplier"], "card_value_multiplier"),
+        )
+    if not isinstance(market["initial_regime"], str):
+        raise TypeError("initial_regime must be a string")
+    parsed_matrix = {}
+    for regime in REGIME_ORDER:
+        row = matrix[regime.value]
+        if not isinstance(row, list):
+            raise TypeError("transition rows must be JSON arrays")
+        parsed_matrix[regime] = MarketConfig._validated_transition_row(regime, row)
+    pack_path = data["pack_config"]
+    if not isinstance(pack_path, str) or not pack_path.strip():
+        raise ValueError("pack_config must be a nonempty path string")
+    return EnvironmentConfig(
+        horizon=_integer(data["horizon"], "horizon", minimum=1),
+        initial_cash=_positive_float(data["initial_cash"], "initial_cash"),
+        selling_fee_rate=_probability(data["selling_fee_rate"], "selling_fee_rate"),
+        market=MarketConfig(
+            initial_regime=MarketRegime(market["initial_regime"]),
+            quotes=parsed_quotes,
+            transition_matrix=parsed_matrix,
+        ),
+        pack=load_pack_config(path.parent / pack_path),
+    )
+
+
 __all__ = [
+    "EnvironmentConfig",
+    "load_environment_config",
     "MarketConfig",
     "MarketQuote",
     "PROBABILITY_TOLERANCE",

@@ -2,8 +2,9 @@
 
 Python package: `packfolio` (Python 3.12). Core dependencies are NumPy 2.2.6,
 Gymnasium 1.1.1, and Matplotlib 3.10.3. The optional DQN dependency is
-PyTorch 2.7.1; tests use pytest 8.4.1. The pack sampler is implemented;
-the other simulator modules are currently placeholders.
+PyTorch 2.7.1; tests use pytest 8.4.1. Pack sampling, market transitions,
+shared contracts, reproducible scenarios, and the Gymnasium environment are
+implemented. The DQN agent and training modules are still placeholders.
 
 ## Local setup
 
@@ -11,29 +12,91 @@ Install Python 3.12 and clone the repository. From the repository root, on
 Windows (PowerShell):
 
 ```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install uv==0.9.1
-.\.venv\Scripts\uv.exe sync --locked --extra dev
-.\.venv\Scripts\uv.exe run --locked pytest -q
+py -m pip install --user uv==0.9.1
+py -m uv sync --locked --extra dev
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
-On macOS or Linux:
+On macOS or Linux, install uv 0.9.1 outside the project environment using the
+[uv installation guide](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```sh
-python3.12 -m venv .venv
-.venv/bin/python -m pip install uv==0.9.1
-.venv/bin/uv sync --locked --extra dev
-.venv/bin/uv run --locked pytest -q
+uv sync --locked --extra dev
+.venv/bin/python -m pytest -q
 ```
 
 Add `--extra agent` to `uv sync` when developing the DQN agent. PyTorch is
 not installed by default. The committed `uv.lock` pins the full dependency
-graph; keep `--locked` on installs and test runs to detect stale locks. Run
+graph; use `--locked` on `uv sync` to reject a stale lockfile. Run
 `uv lock` and commit the updated lock whenever dependencies change.
+
+On Windows, keep uv outside `.venv` and call it with `py -m uv`. A sync can
+[remove tools installed inside the managed environment](https://docs.astral.sh/uv/concepts/projects/sync/#handling-of-extraneous-packages). The project itself
+still runs with `.venv\Scripts\python.exe`, which uses Python 3.12.
 
 Local secrets belong in `.env` (or `.env.*`), and generated results in
 `outputs/`, `runs/`, or `checkpoints/`; these paths and model weights are
 ignored by Git. Put versioned, non-secret scenario settings in `configs/`.
+
+## Reproducible DQN training
+
+The simulator assumptions are loaded from `configs/environment.json`;
+independent DQN hyperparameters are loaded from `configs/agent.yaml`. From the
+repository root, install the optional agent dependencies and start a run with:
+
+```powershell
+.\.venv\Scripts\uv.exe sync --locked --extra dev --extra agent
+.\.venv\Scripts\uv.exe run --locked --extra dev --extra agent python -m packfolio.train
+```
+
+Override the inputs with `--environment-config`, `--agent-config`, and
+`--output-root`. Each invocation creates a new unique run directory containing
+the exact input files, a fully resolved environment configuration, a
+`run_manifest.json`, per-episode `training_metrics.jsonl`, and a reloadable
+`checkpoint.pt`. The manifest records the Git commit and dirty state, package
+versions, seeds, runtime, environment config hash, and actual environment-step
+count. Training uses replay sampling, a periodically synchronized target
+network, epsilon-greedy exploration, and `gamma = 1.0`; invalid actions are
+allowed by design and their per-episode rate is logged. Checkpoints can be
+loaded for deterministic policy inference with
+`packfolio.agents.dqn_agent.load_trained_agent`.
+
+## Environment compatibility checks (PF-11)
+
+The selected agent stack is a custom DQN using PyTorch, not Stable-Baselines3.
+Install the locked agent dependencies, then run the mandatory check from the
+repository root on Windows:
+
+```powershell
+py -m uv sync --locked --extra dev --extra agent
+.\.venv\Scripts\python.exe -m packfolio.check_env
+```
+
+The command runs Gymnasium's checker, then sends observations through a small,
+untrained CPU network with eight inputs and four action outputs. It converts
+the selected action to a scalar, runs a full episode, checks the end guard,
+and replays the same seed. It also checks conversion of rewards to tensors.
+This follows the tensor/action boundary in the
+[PyTorch DQN tutorial](https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html).
+It does not train a DQN or test the future agent's quality.
+
+Expect `Gymnasium and PyTorch boundary checks passed (100 steps, replay matched)`
+with the shipped config. The command exits with an error if PyTorch is missing.
+It prints the config hash, seed, inventory capacity, and reference price.
+Use `--config`, `--seed`, `--inventory-capacity`, and `--reference-price` to
+check other settings. Only the known warning about unbounded observation
+maxima is hidden; other Gymnasium checker warnings stay visible.
+
+Run the saved environment checks with:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q tests/test_env.py tests/test_env_actions.py tests/test_env_rewards.py tests/test_env_terminal.py tests/test_accounting.py tests/test_check_env.py -p no:cacheprovider
+```
+
+PyTorch-specific pytest cases skip when the optional dependency is absent.
+Those skips do not count as a compatibility pass: run the mandatory command
+with the agent extra before signing off PF-11. Nasir's actual DQN integration
+still needs its own tests when that agent exists.
 
 ## Whole-pack sampling and expected value
 
@@ -73,3 +136,52 @@ it does not sample or consume random state.
 occurs, and handles cash changes there. Saki uses `expected_gross_value` for
 the EV baseline. Neither function deducts fees, pack purchase costs, or changes
 cash.
+
+## DQN agent
+
+Packfolio's DQN adapter uses the frozen eight-feature observation order and the
+four action IDs in `docs/interfaces.md`. Its fixed preprocessing divides the
+cash ratio by ten and leaves the other already-normalized features unchanged.
+It does not clip cash: observations representing cash above the initial budget
+remain distinct. Training code should use `preprocess_observations` too, so
+training and evaluation use the same order and scaling. Evaluation uses
+deterministic `argmax` over the four Q-values; ties select the lowest action ID.
+The agent does not add action masking.
+
+DQN is a reasonable baseline for this problem because it has a small,
+fully-observed numerical state and a finite discrete action set, while the
+value of each action can depend on interactions among cash, inventory, market
+regime, and remaining horizon. Mnih et al. demonstrated deep Q-learning with a
+neural Q-function for discrete-action control; this project uses that
+value-based formulation, not their Atari architecture or experimental results
+([Mnih et al., *Nature* 518, 529–533 (2015)](https://doi.org/10.1038/nature14236)).
+This is a justified starting point, not evidence that DQN will outperform
+baselines on the simulator.
+
+The project code owns the observation validation/order, fixed feature scaling,
+8-to-4 network shape, and deterministic action adapter. The optional PyTorch
+dependency supplies the `Linear`/`ReLU` layers and tensor inference primitives;
+it does not provide the project-specific state/action contract or an
+environment. A caller can build or train the returned Q network and pass it to
+`DQNAgent.from_torch`; this module does not yet own an environment rollout,
+replay buffer, or optimizer loop. Install the optional `agent` extra to build
+or run a PyTorch-backed network.
+
+## Agent sanity checks and diagnostic fixtures (PF-17)
+
+`configs/diagnostics/` has small environment/pack fixtures with a known best
+action (always buy-and-open, or always hold), isolated from market or pack
+randomness. `packfolio.diagnostics.run_greedy_rollout` replays a trained
+checkpoint greedily against a fixture, reports executed/requested action
+counts, reward scale, and Q-value ranges, and raises immediately on any
+non-finite network output or reward:
+
+```powershell
+.\.venv\Scripts\python.exe -m packfolio.diagnostics --checkpoint <run_directory>\checkpoint.pt --environment-config configs\diagnostics\profitable_opening_environment.json
+```
+
+See [`docs/learning_check.md`](docs/learning_check.md) for the fixed smoke
+budget used, what was observed, and the documented requested-vs-executed
+action distinction. These fixtures are a debugging aid, not a substitute for
+final experiments on the frozen market.
+
