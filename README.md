@@ -61,6 +61,38 @@ allowed by design and their per-episode rate is logged. Checkpoints can be
 loaded for deterministic policy inference with
 `packfolio.agents.dqn_agent.load_trained_agent`.
 
+## Checkpoint reload and reproducible evaluation (PF-18)
+
+A saved `checkpoint.pt` can be evaluated in a fresh process, with no in-memory
+training object, via Saki's runner:
+
+```powershell
+.\.venv\Scripts\uv.exe run --locked --extra dev --extra agent python -m packfolio.evaluate `
+    --checkpoint runs\<run-id>\checkpoint.pt `
+    --split-manifest configs\splits\validation.json `
+    --output runs\<run-id>\eval-validation
+```
+
+`evaluate_checkpoint_on_split` rebuilds the trained policy, reconstructs the
+exact environment it was trained against with
+`packfolio.env.build_environment`, and replays every scenario in the split
+manifest deterministically. Before running any episode, it compares the
+checkpoint's recorded `environment_config_hash` against the split manifest's
+resolved environment configuration and raises `ValueError` immediately on a
+mismatch, so an incompatible observation/action schema fails clearly instead
+of silently producing meaningless actions.
+
+Each run writes `evaluation_rows.jsonl` (one summary row per scenario),
+`step_traces/<scenario-id>.jsonl` (per-step action/reward/portfolio traces,
+with `:` in scenario IDs replaced by `_` for filenames), and an
+`evaluation_manifest.json` that links the model (`checkpoint_file`,
+`model_id`, `training_seed`), its configuration (`environment_config_hash`),
+the commit (`git_commit`), and the scenario set (`scenario_split`,
+`scenario_manifest_file`, `scenario_ids`). Reloading the same checkpoint
+against the same split -- whether in-process or from a separate subprocess --
+reproduces byte-identical evaluation rows and step traces, so a second team
+member can evaluate a saved model without retraining it.
+
 ## Environment compatibility checks (PF-11)
 
 The selected agent stack is a custom DQN using PyTorch, not Stable-Baselines3.

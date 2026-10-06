@@ -7,7 +7,10 @@ import numpy as np
 from packfolio.config import EnvironmentConfig, REGIME_ORDER, _integer, _positive_float
 from packfolio.portfolio import apply_action, liquidate, liquidation_value
 from packfolio.scenarios import Scenario, ScenarioSpec
-from packfolio.types import Action, OBSERVATION_SIZE, PackOutcome, PackOutcomeId, PortfolioSnapshot, StepInfo, TerminationReason
+from packfolio.types import Action, MarketRegime, OBSERVATION_SIZE, PackOutcome, PackOutcomeId, PortfolioSnapshot, StepInfo, TerminationReason
+
+
+DEFAULT_INVENTORY_CAPACITY = 10
 
 
 class PackfolioEnv(gym.Env[np.ndarray, int]):
@@ -128,4 +131,23 @@ class PackfolioEnv(gym.Env[np.ndarray, int]):
         return observation
 
 
-__all__ = ["PackfolioEnv"]
+def build_environment(
+    config: EnvironmentConfig,
+    *,
+    inventory_capacity: int = DEFAULT_INVENTORY_CAPACITY,
+) -> PackfolioEnv:
+    """Build a `PackfolioEnv` using the project's fixed reference-price convention.
+
+    Training and evaluation must use identical preprocessing and environment
+    construction for a reloaded checkpoint to reproduce its training-time
+    behavior, so both call this helper instead of each computing their own
+    ``reference_price``.
+    """
+    return PackfolioEnv(
+        config,
+        inventory_capacity=inventory_capacity,
+        reference_price=config.market.quotes[MarketRegime.NORMAL].pack_ask,
+    )
+
+
+__all__ = ["DEFAULT_INVENTORY_CAPACITY", "PackfolioEnv", "build_environment"]

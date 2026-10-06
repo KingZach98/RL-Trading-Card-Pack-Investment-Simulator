@@ -5,13 +5,10 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import importlib.metadata
 import json
 import math
 from pathlib import Path
-import re
 import shutil
-import subprocess
 import sys
 import time
 from typing import Any
@@ -30,14 +27,15 @@ from packfolio.agents.dqn_agent import (
     preprocess_observations,
 )
 from packfolio.config import load_environment_config
-from packfolio.env import PackfolioEnv
+from packfolio.env import DEFAULT_INVENTORY_CAPACITY, build_environment
+from packfolio.provenance import git_metadata, installed_dependencies
 from packfolio.types import Action, OBSERVATION_SIZE, MarketRegime
 
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_ENVIRONMENT_CONFIG = _REPOSITORY_ROOT / "configs" / "environment.json"
 _DEFAULT_AGENT_CONFIG = _REPOSITORY_ROOT / "configs" / "agent.yaml"
-_INVENTORY_CAPACITY = 10
+_INVENTORY_CAPACITY = DEFAULT_INVENTORY_CAPACITY
 
 
 def _positive_integer(value: object, field_name: str) -> int:
@@ -250,44 +248,6 @@ class ReplayBuffer:
         )
 
 
-def _git_metadata() -> tuple[str, bool]:
-    commit_result = subprocess.run(
-        ["git", "-C", str(_REPOSITORY_ROOT), "rev-parse", "--verify", "HEAD"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    status_result = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(_REPOSITORY_ROOT),
-            "status",
-            "--porcelain",
-            "--untracked-files=normal",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return commit_result.stdout.strip(), bool(status_result.stdout.strip())
-
-
-def _installed_dependencies() -> list[dict[str, str]]:
-    packages: dict[str, dict[str, str]] = {}
-    for distribution in importlib.metadata.distributions():
-        name = distribution.metadata.get("Name")
-        if not name:
-            continue
-        normalized_name = re.sub(r"[-_.]+", "-", name).casefold()
-        package = {"name": name, "version": distribution.version}
-        existing = packages.get(normalized_name)
-        if existing is not None and existing["version"] != package["version"]:
-            raise RuntimeError(f"multiple installed versions found for {name}")
-        packages[normalized_name] = package
-    return sorted(packages.values(), key=lambda package: package["name"].casefold())
-
-
 def _new_run_directory(output_root: Path) -> tuple[str, Path]:
     output_root.mkdir(parents=True, exist_ok=True)
     for _ in range(10):
@@ -405,11 +365,7 @@ def train(
     optimizer = torch.optim.Adam(network.parameters(), lr=agent_config.learning_rate)
     loss_function = torch.nn.SmoothL1Loss()
     replay = ReplayBuffer(agent_config.replay_capacity)
-    env = PackfolioEnv(
-        environment_config,
-        inventory_capacity=_INVENTORY_CAPACITY,
-        reference_price=environment_config.market.quotes[MarketRegime.NORMAL].pack_ask,
-    )
+    env = build_environment(environment_config, inventory_capacity=_INVENTORY_CAPACITY)
 
     metric_path = run_directory / "training_metrics.jsonl"
     environment_seeds: list[int] = []
@@ -532,7 +488,7 @@ def train(
     }
     torch.save(checkpoint, checkpoint_path)
 
-    git_commit, git_dirty = _git_metadata()
+    git_commit, git_dirty = git_metadata()
     manifest: dict[str, object] = {
         "manifest_version": 1,
         "run_id": run_id,
@@ -542,7 +498,7 @@ def train(
         "git_commit": git_commit,
         "git_working_tree_dirty": git_dirty,
         "python_version": sys.version,
-        "dependencies": _installed_dependencies(),
+        "dependencies": installed_dependencies(),
         "environment_config_file": environment_copy.name,
         "environment_config_source": str(environment_config_file),
         "environment_resolved_file": resolved_environment_copy.name,
