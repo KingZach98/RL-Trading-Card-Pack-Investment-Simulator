@@ -1,11 +1,23 @@
 from __future__ import annotations
 
-import json
+import argparse
 from math import isclose
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
+import importlib.metadata
 from pathlib import Path
+import json
+import re
 
+from packfolio.agents.dqn_agent import (
+    CheckpointMetadata,
+    load_checkpoint_metadata,
+    load_trained_agent,
+)
+from packfolio.env import DEFAULT_INVENTORY_CAPACITY, build_environment
+from packfolio.provenance import git_metadata
+from packfolio.scenarios import ScenarioSpec, SplitManifest, load_split_manifest
 from packfolio.types import (
     Action,
     EvaluationRow,
@@ -169,12 +181,275 @@ def _count_actions(actions: Iterable[Action]) -> dict[Action, int]:
     return counts
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EvaluationManifest:
+    """Links a reloaded checkpoint, its configuration, commit, and scenario set.
+
+    This is the PF-18 "model manifest": together with the checkpoint file it
+    is everything a second person needs, in a fresh process, to reproduce the
+    exact action sequences and portfolio traces an evaluation run recorded.
+    """
+
+    manifest_version: int
+    created_at_utc: str
+    policy_id: str
+    model_id: str
+    training_seed: int
+    checkpoint_file: str
+    environment_config_hash: str
+    git_commit: str
+    scenario_split: str
+    scenario_manifest_file: str
+    scenario_ids: tuple[str, ...]
+    simulator_version: str
+    evaluation_rows_file: str
+    step_traces_directory: str
+
+    def __post_init__(self) -> None:
+        if self.manifest_version != 1:
+            raise ValueError("unsupported evaluation manifest_version")
+        for name in (
+            "created_at_utc",
+            "policy_id",
+            "model_id",
+            "checkpoint_file",
+            "git_commit",
+            "scenario_split",
+            "scenario_manifest_file",
+            "simulator_version",
+            "evaluation_rows_file",
+            "step_traces_directory",
+        ):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value:
+                raise ValueError(f"{name} must be a nonempty string")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.environment_config_hash):
+            raise ValueError("environment_config_hash must be a lowercase SHA-256 digest")
+        if type(self.training_seed) is not int or self.training_seed < 0:
+            raise ValueError("training_seed must be a nonnegative integer")
+        if not isinstance(self.scenario_ids, tuple) or not self.scenario_ids:
+            raise ValueError("scenario_ids must be a nonempty tuple")
+        if any(not isinstance(scenario_id, str) for scenario_id in self.scenario_ids):
+            raise TypeError("scenario_ids must contain strings")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "manifest_version": self.manifest_version,
+            "created_at_utc": self.created_at_utc,
+            "policy_id": self.policy_id,
+            "model_id": self.model_id,
+            "training_seed": self.training_seed,
+            "checkpoint_file": self.checkpoint_file,
+            "environment_config_hash": self.environment_config_hash,
+            "git_commit": self.git_commit,
+            "scenario_split": self.scenario_split,
+            "scenario_manifest_file": self.scenario_manifest_file,
+            "scenario_ids": list(self.scenario_ids),
+            "simulator_version": self.simulator_version,
+            "evaluation_rows_file": self.evaluation_rows_file,
+            "step_traces_directory": self.step_traces_directory,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, object]) -> "EvaluationManifest":
+        required = set(_field_name for _field_name in cls.__slots__)
+        data = _json_record(data, required, "evaluation manifest")
+        return cls(
+            manifest_version=data["manifest_version"],
+            created_at_utc=data["created_at_utc"],
+            policy_id=data["policy_id"],
+            model_id=data["model_id"],
+            training_seed=data["training_seed"],
+            checkpoint_file=data["checkpoint_file"],
+            environment_config_hash=data["environment_config_hash"],
+            git_commit=data["git_commit"],
+            scenario_split=data["scenario_split"],
+            scenario_manifest_file=data["scenario_manifest_file"],
+            scenario_ids=tuple(data["scenario_ids"]),
+            simulator_version=data["simulator_version"],
+            evaluation_rows_file=data["evaluation_rows_file"],
+            step_traces_directory=data["step_traces_directory"],
+        )
+
+
+def _json_record(
+    data: object, required: set[str], record_name: str
+) -> dict[str, object]:
+    if not isinstance(data, Mapping):
+        raise TypeError(f"{record_name} data must be a mapping")
+    actual = set(data)
+    if actual != required:
+        missing = required - actual
+        extra = actual - required
+        details = []
+        if missing:
+            details.append(f"missing fields: {', '.join(sorted(missing))}")
+        if extra:
+            details.append(f"extra fields: {', '.join(sorted(str(item) for item in extra))}")
+        raise ValueError(f"invalid {record_name} data ({'; '.join(details)})")
+    return dict(data)
+
+
+def write_evaluation_manifest(path: str | Path, manifest: EvaluationManifest) -> None:
+    with Path(path).open("w", encoding="utf-8") as manifest_file:
+        json.dump(manifest.to_dict(), manifest_file, indent=2, sort_keys=True)
+        manifest_file.write("\n")
+
+
+def read_evaluation_manifest(path: str | Path) -> EvaluationManifest:
+    with Path(path).open(encoding="utf-8") as manifest_file:
+        return EvaluationManifest.from_dict(json.load(manifest_file))
+
+
+def _sanitize_scenario_id_for_filename(scenario_id: str) -> str:
+    """Scenario IDs contain ':', which is not a safe filename character on Windows."""
+    return scenario_id.replace(":", "_")
+
+
+def evaluate_checkpoint_on_split(
+    *,
+    checkpoint_path: str | Path,
+    split_manifest_path: str | Path,
+    output_directory: str | Path,
+    inventory_capacity: int = DEFAULT_INVENTORY_CAPACITY,
+    policy_id: str = "DQN",
+) -> Path:
+    """Reload a saved DQN checkpoint and evaluate it on a scenario split.
+
+    This is the fresh-process entry point PF-18 requires: given only a
+    checkpoint file and a scenario split manifest (no in-memory training
+    object), it rebuilds the trained policy and the exact environment it was
+    trained against, replays every scenario in the split with
+    :func:`evaluate_episode`, and writes an :class:`EvaluationManifest` that
+    links the model, its configuration, the commit, and the scenario set.
+
+    Raises ``ValueError`` immediately, before any episode runs, if the
+    checkpoint's recorded ``environment_config_hash`` does not match the
+    split manifest's environment configuration, so an incompatible
+    observation/action schema fails clearly rather than silently producing
+    meaningless actions.
+    """
+    checkpoint_path = Path(checkpoint_path).resolve()
+    split_manifest_path = Path(split_manifest_path).resolve()
+    output_directory = Path(output_directory)
+    output_directory.mkdir(parents=True, exist_ok=True)
+
+    checkpoint_metadata: CheckpointMetadata = load_checkpoint_metadata(checkpoint_path)
+    split: SplitManifest = load_split_manifest(split_manifest_path)
+    if split.config.config_hash != checkpoint_metadata.environment_config_hash:
+        raise ValueError(
+            "checkpoint environment_config_hash "
+            f"({checkpoint_metadata.environment_config_hash}) does not match "
+            f"the split manifest's environment configuration "
+            f"({split.config.config_hash}); refusing to evaluate a checkpoint "
+            "against an incompatible observation/action schema"
+        )
+
+    policy = load_trained_agent(checkpoint_path)
+    git_commit, _git_dirty = git_metadata()
+    simulator_version = importlib.metadata.version("packfolio")
+    model_id = checkpoint_path.parent.name
+
+    traces_directory = output_directory / "step_traces"
+    traces_directory.mkdir(exist_ok=True)
+
+    rows: list[EvaluationRow] = []
+    scenario: ScenarioSpec
+    for scenario in split.scenarios:
+        env = build_environment(split.config, inventory_capacity=inventory_capacity)
+        row_metadata = EvaluationMetadata(
+            simulator_version=simulator_version,
+            policy_id=policy_id,
+            model_id=model_id,
+            training_seed=checkpoint_metadata.training_seed,
+            scenario_id=scenario.scenario_id,
+            scenario_seed=scenario.seed,
+            config_hash=split.config.config_hash,
+            git_commit=git_commit,
+        )
+        result = evaluate_episode(policy, env, row_metadata)
+        rows.append(result.row)
+        trace_path = (
+            traces_directory
+            / f"{_sanitize_scenario_id_for_filename(scenario.scenario_id)}.jsonl"
+        )
+        write_step_traces_jsonl(trace_path, result.step_traces)
+
+    evaluation_rows_file = "evaluation_rows.jsonl"
+    write_evaluation_rows_jsonl(output_directory / evaluation_rows_file, rows)
+
+    manifest = EvaluationManifest(
+        manifest_version=1,
+        created_at_utc=datetime.now(UTC).isoformat(),
+        policy_id=policy_id,
+        model_id=model_id,
+        training_seed=checkpoint_metadata.training_seed,
+        checkpoint_file=str(checkpoint_path),
+        environment_config_hash=split.config.config_hash,
+        git_commit=git_commit,
+        scenario_split=split.split,
+        scenario_manifest_file=str(split_manifest_path),
+        scenario_ids=tuple(scenario.scenario_id for scenario in split.scenarios),
+        simulator_version=simulator_version,
+        evaluation_rows_file=evaluation_rows_file,
+        step_traces_directory=traces_directory.name,
+    )
+    write_evaluation_manifest(output_directory / "evaluation_manifest.json", manifest)
+    return output_directory
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Reload a saved DQN checkpoint in a fresh process and evaluate it "
+            "on a scenario split manifest."
+        )
+    )
+    parser.add_argument(
+        "--checkpoint", type=Path, required=True, help="Path to a checkpoint.pt file"
+    )
+    parser.add_argument(
+        "--split-manifest",
+        type=Path,
+        required=True,
+        help="Path to a scenario split manifest JSON file",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Directory for evaluation rows, step traces, and the manifest",
+    )
+    parser.add_argument(
+        "--policy-id",
+        default="DQN",
+        help="Policy identifier recorded in evaluation rows (default: DQN)",
+    )
+    args = parser.parse_args(argv)
+    output_directory = evaluate_checkpoint_on_split(
+        checkpoint_path=args.checkpoint,
+        split_manifest_path=args.split_manifest,
+        output_directory=args.output,
+        policy_id=args.policy_id,
+    )
+    print(output_directory)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
 __all__ = [
+    "EvaluationManifest",
     "EvaluationMetadata",
     "EvaluationResult",
+    "evaluate_checkpoint_on_split",
     "evaluate_episode",
+    "read_evaluation_manifest",
     "read_evaluation_rows_jsonl",
     "read_step_traces_jsonl",
+    "write_evaluation_manifest",
     "write_evaluation_rows_jsonl",
     "write_step_traces_jsonl",
 ]

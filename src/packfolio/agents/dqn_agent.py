@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
+import re
 from typing import Any, Protocol
 
 import numpy as np
@@ -135,8 +137,13 @@ class DQNAgent:
         return Action(int(np.argmax(q_values[0])))
 
 
-def load_trained_agent(checkpoint_path: str | Path) -> DQNAgent:
-    """Load a saved Q network using the checkpoint's architecture metadata."""
+def _load_validated_checkpoint(checkpoint_path: str | Path) -> dict[str, Any]:
+    """Load a checkpoint and verify it matches this interface before use.
+
+    Shared by :func:`load_trained_agent` (which also rebuilds the network) and
+    :func:`load_checkpoint_metadata` (which only needs the recorded metadata),
+    so both fail the same way on an incompatible or malformed checkpoint.
+    """
     try:
         torch = import_module("torch")
     except ImportError as error:
@@ -163,7 +170,13 @@ def load_trained_agent(checkpoint_path: str | Path) -> DQNAgent:
         raise ValueError("checkpoint action order does not match the interface")
     if tuple(architecture.get("feature_scale", ())) != tuple(float(x) for x in FEATURE_SCALE):
         raise ValueError("checkpoint feature scaling does not match this agent")
+    return checkpoint
 
+
+def load_trained_agent(checkpoint_path: str | Path) -> DQNAgent:
+    """Load a saved Q network using the checkpoint's architecture metadata."""
+    checkpoint = _load_validated_checkpoint(checkpoint_path)
+    architecture = checkpoint["architecture"]
     hidden_widths = architecture.get("hidden_layer_widths")
     if not isinstance(hidden_widths, list) or not hidden_widths:
         raise ValueError("checkpoint has invalid hidden layer widths")
@@ -176,6 +189,41 @@ def load_trained_agent(checkpoint_path: str | Path) -> DQNAgent:
     return DQNAgent.from_torch(network)
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CheckpointMetadata:
+    """Provenance recorded in a checkpoint, needed to evaluate it safely.
+
+    ``environment_config_hash`` lets a caller refuse to evaluate a checkpoint
+    against a mismatched environment configuration before running a single
+    episode.
+    """
+
+    environment_config_hash: str
+    training_seed: int
+    hidden_layer_widths: tuple[int, ...]
+
+
+def load_checkpoint_metadata(checkpoint_path: str | Path) -> CheckpointMetadata:
+    """Read a checkpoint's provenance without rebuilding its Q network."""
+    checkpoint = _load_validated_checkpoint(checkpoint_path)
+    environment_config_hash = checkpoint.get("environment_config_hash")
+    if not isinstance(environment_config_hash, str) or not re.fullmatch(
+        r"[0-9a-f]{64}", environment_config_hash
+    ):
+        raise ValueError("checkpoint is missing a valid environment_config_hash")
+    training_seed = checkpoint.get("training_seed")
+    if type(training_seed) is not int:
+        raise ValueError("checkpoint is missing a valid training_seed")
+    hidden_widths = checkpoint["architecture"].get("hidden_layer_widths")
+    if not isinstance(hidden_widths, list) or not hidden_widths:
+        raise ValueError("checkpoint has invalid hidden layer widths")
+    return CheckpointMetadata(
+        environment_config_hash=environment_config_hash,
+        training_seed=training_seed,
+        hidden_layer_widths=tuple(hidden_widths),
+    )
+
+
 __all__ = [
     "ACTION_COUNT",
     "ACTION_ORDER",
@@ -183,9 +231,11 @@ __all__ = [
     "HIDDEN_LAYER_WIDTHS",
     "FEATURE_ORDER",
     "FEATURE_SCALE",
+    "CheckpointMetadata",
     "DQNAgent",
     "QNetwork",
     "build_q_network",
+    "load_checkpoint_metadata",
     "load_trained_agent",
     "preprocess_observations",
 ]
