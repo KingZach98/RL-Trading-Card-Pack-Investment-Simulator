@@ -12,8 +12,8 @@ CARDS_PER_BOX = PACKS_PER_BOX * CARDS_PER_PACK
 # expected content of whats inside when opening an entire box
 BOX_CONTENTS = {
     "rookies": 24,
-    "silver_prizms": 2,
-    "numbered_prizms": 9,
+    "silver": 2,
+    "numbered": 9,
     "autographs": 2,
     "inserts": 4,
 }
