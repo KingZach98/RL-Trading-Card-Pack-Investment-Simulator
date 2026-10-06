@@ -17,12 +17,6 @@ objective. Run training from the repository root with
 stores copies of both input files, the resolved environment, its checkpoint,
 episode metrics, and a manifest in a unique directory under `runs/`.
 
-`diagnostics/` holds small, hand-picked environment/pack/agent fixtures with a
-known best action (always open, or always hold), used for PF-17 agent smoke
-tests rather than final experiments. See
-[`docs/learning_check.md`](../docs/learning_check.md) for what each fixture
-tests, the fixed smoke budget, and what was observed when they last ran.
-
 Split manifests are separate files, with no implicit final-test loading:
 
 | Manifest | Owner | Seeds | Purpose |
