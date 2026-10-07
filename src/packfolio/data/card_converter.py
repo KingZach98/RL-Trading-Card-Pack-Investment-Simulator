@@ -13,6 +13,16 @@ def load_cards(file_path):
 
     return cards
 
+def get_base_cards(cards):
+    base_cards = []
+
+    for card in cards:
+        card_name = card["card"]
+
+        if "[" not in card_name and "]" not in card_name and "#" in card_name:
+            base_cards.append(card)
+
+    return base_cards
 
 def get_cards_by_parallel(cards, parallel):
     matching_cards = []
@@ -37,6 +47,9 @@ def pull_card_by_parallel(cards, parallel):
 if __name__ == "__main__":
     cards = load_cards("data/2020_panini_prizm_cards.csv")
 
-    card = pull_card_by_parallel(cards, "orange")
+    base_cards = get_base_cards(cards)
 
-    print(card["card"])
+    print(f"Found {len(base_cards)} base cards")
+
+    for card in base_cards[:20]:
+        print(card["card"])
