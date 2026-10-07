@@ -1,6 +1,9 @@
 import random
 
-from src.packfolio.probabilities.pull_rates_and_distributions import BOX_CONTENTS, NUMBERED_PARALLELS
+from packfolio.probabilities.pull_rates_and_distributions import BOX_CONTENTS, NUMBERED_PARALLELS
+from packfolio.data.card_converter import load_cards, get_cards_by_parallel, pull_card_by_parallel
+
+cards = load_cards("data/2020_panini_prizm_cards.csv")
 
 def pull_numbered_parallel():
     parallels = list(NUMBERED_PARALLELS.keys())
@@ -14,7 +17,6 @@ def pull_numbered_parallel():
 
 
 def open_box():
-
     box = {
         "rookies": BOX_CONTENTS["rookies"],
         "silver": BOX_CONTENTS["silver"],
@@ -25,7 +27,12 @@ def open_box():
 
     for _ in range(BOX_CONTENTS["numbered"]):
         parallel = pull_numbered_parallel()
-        box["numbered"].append(parallel)
+        card = pull_card_by_parallel(cards, parallel)
+
+        box["numbered"].append({
+            "parallel": parallel,
+            "card": card
+        })
 
     return box
 
@@ -39,4 +46,7 @@ if __name__ == "__main__":
     print(f"Silver Prizms: {box['silver']}")
     print(f"Autographs: {box['autographs']}")
     print(f"Inserts: {box['inserts']}")
-    print(f"Numbered Prizms: {box['numbered']}")
+    print("Numbered Prizms:")
+
+    for pull in box["numbered"]:
+        print(f"- {pull['card']['card']}")
