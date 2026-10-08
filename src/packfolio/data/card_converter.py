@@ -61,6 +61,22 @@ def get_cards_by_parallel(cards, parallel):
 
     return matching_cards
 
+def pull_random_cards(cards, amount):
+    return random.choices(cards, k=amount)
+
+def get_parallel_version(cards, base_card, parallel):
+    card_number = get_card_number(base_card)
+
+    search_term = f"[{parallel.replace('_', ' ').title()}]"
+
+    for card in cards:
+        if (
+            get_card_number(card) == card_number
+            and search_term.lower() in card["card"].lower()
+        ):
+            return card
+
+    return None
 
 def pull_card_by_parallel(cards, parallel):
     matching_cards = get_cards_by_parallel(cards, parallel)
@@ -72,18 +88,17 @@ def pull_card_by_parallel(cards, parallel):
 
 if __name__ == "__main__":
     cards = load_cards("data/2020_panini_prizm_cards.csv")
+    base_cards = get_base_cards(cards)
+    burrow = next(
+        card for card in base_cards
+        if card["card"] == "Joe Burrow #307"
+    )
 
-    rookies = get_base_rookies(cards)
-    veterans = get_base_veterans(cards)
-#### WILL BE REMOVED #### 
-    print(f"Rookies: {len(rookies)}")
+    parallel = get_parallel_version(
+        cards,
+        burrow,
+        "orange"
+    )
 
-    print(f"Veterans: {len(veterans)}")
-
-    print(f"Total: {len(rookies) + len(veterans)}")
-
-    print("\nSome rookies:")
-
-    for card in rookies[:10]:
-
-        print(card["card"])
+    print(burrow["card"])
+    print(parallel["card"])
