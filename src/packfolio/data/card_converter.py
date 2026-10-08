@@ -40,7 +40,6 @@ def get_base_rookies(cards):
         and get_card_number(card) >= 301
     ]
 
-
 def get_base_veterans(cards):
     base_cards = get_base_cards(cards)
 

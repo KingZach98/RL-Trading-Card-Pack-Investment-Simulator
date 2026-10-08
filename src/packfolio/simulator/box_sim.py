@@ -7,6 +7,7 @@ from packfolio.data.card_converter import (
     get_base_veterans,
     pull_random_cards,
     pull_card_by_parallel,
+    get_parallel_version
 )
 cards = load_cards("data/2020_panini_prizm_cards.csv")
 rookie_pool = get_base_rookies(cards)
@@ -22,24 +23,31 @@ def pull_numbered_parallel():
         k=1
     )[0]
 
+def apply_numbered_parallels(box, cards):
+    # Choose 9 unique card slots in the box
+    numbered_indices = random.sample(
+        range(len(box)),
+        BOX_CONTENTS["numbered"]
+    )
+
+    for index in numbered_indices:
+        base_card = box[index]
+
+        parallel = pull_numbered_parallel()
+
+        parallel_card = get_parallel_version(
+            cards,
+            base_card,
+            parallel
+        )
+
+        if parallel_card is not None:
+            box[index] = parallel_card
+
+    return box
+
 
 def open_box():
-    # box = {
-    #     "rookies": BOX_CONTENTS["rookies"],
-    #     "silver": BOX_CONTENTS["silver"],
-    #     "numbered": [],
-    #     "autographs": BOX_CONTENTS["autographs"],
-    #     "inserts": BOX_CONTENTS["inserts"],
-    # }
-
-    # for _ in range(BOX_CONTENTS["numbered"]):
-    #     parallel = pull_numbered_parallel()
-    #     card = pull_card_by_parallel(cards, parallel)
-
-    #     box["numbered"].append({
-    #         "parallel": parallel,
-    #         "card": card
-    #     })
     rookies = pull_random_cards(
         rookie_pool,
         BOX_CONTENTS["rookies"]
@@ -54,24 +62,20 @@ def open_box():
 
     box = rookies + veterans
 
+    box = apply_numbered_parallels(box, cards)
+
     return box
-
 if __name__ == "__main__":
-    # box = open_box()
-
-    # print("Simulated Hobby Box")
-    # print("-------------------")
-    # print(f"Rookies: {box['rookies']}")
-    # print(f"Silver Prizms: {box['silver']}")
-    # print(f"Autographs: {box['autographs']}")
-    # print(f"Inserts: {box['inserts']}")
-    # print("Numbered Prizms:")
-
-    # for pull in box["numbered"]:
-    #     print(f"- {pull['card']['card']}")
     box = open_box()
 
     print(f"Total cards: {len(box)}")
 
-    for card in box:
+    numbered = [
+        card for card in box
+        if card["print_run"] != ""
+    ]
+
+    print(f"Numbered cards: {len(numbered)}")
+
+    for card in numbered:
         print(card["card"])
