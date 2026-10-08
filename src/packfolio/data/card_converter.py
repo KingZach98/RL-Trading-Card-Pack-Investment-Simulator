@@ -1,5 +1,6 @@
 import csv
 import random
+from packfolio.probabilities.pull_rates_and_distributions import NUMBERED_PARALLELS
 
 def load_cards(file_path):
     cards = []
@@ -84,6 +85,17 @@ def pull_card_by_parallel(cards, parallel):
         return None
 
     return random.choice(matching_cards)
+
+def is_numbered_card(card):
+    card_name = card["card"].lower()
+
+    for parallel in NUMBERED_PARALLELS:
+        parallel_name = parallel.replace("_", " ")
+
+        if f"[{parallel_name}]" in card_name:
+            return True
+
+    return False
 
 if __name__ == "__main__":
     cards = load_cards("data/2020_panini_prizm_cards.csv")

@@ -7,7 +7,8 @@ from packfolio.data.card_converter import (
     get_base_veterans,
     pull_random_cards,
     pull_card_by_parallel,
-    get_parallel_version
+    get_parallel_version,
+    is_numbered_card
 )
 cards = load_cards("data/2020_panini_prizm_cards.csv")
 rookie_pool = get_base_rookies(cards)
@@ -65,16 +66,16 @@ def open_box():
     box = apply_numbered_parallels(box, cards)
 
     return box
+
 if __name__ == "__main__":
     box = open_box()
 
-    print(f"Total cards: {len(box)}")
-
     numbered = [
         card for card in box
-        if card["print_run"] != ""
+        if is_numbered_card(card)
     ]
 
+    print(f"Total cards: {len(box)}")
     print(f"Numbered cards: {len(numbered)}")
 
     for card in numbered:
