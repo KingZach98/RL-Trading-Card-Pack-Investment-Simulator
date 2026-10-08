@@ -5,6 +5,7 @@ from math import isclose
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import hashlib
 import importlib.metadata
 from pathlib import Path
 import json
@@ -16,11 +17,13 @@ from packfolio.agents.dqn_agent import (
     load_trained_agent,
 )
 from packfolio.env import DEFAULT_INVENTORY_CAPACITY, build_environment
+from packfolio.config import EnvironmentConfig, _integer, _positive_float
 from packfolio.provenance import git_metadata
 from packfolio.scenarios import ScenarioSpec, SplitManifest, load_split_manifest
 from packfolio.types import (
     Action,
     EvaluationRow,
+    MarketRegime,
     StepInfo,
 )
 
@@ -185,7 +188,8 @@ def _count_actions(actions: Iterable[Action]) -> dict[Action, int]:
 class EvaluationManifest:
     """Links a reloaded checkpoint, its configuration, commit, and scenario set.
 
-    This is the PF-18 "model manifest": together with the checkpoint file it
+    This is the PF-18 "model manifest": together with the checkpoint file and
+    the accompanying PF-25 evaluation_settings.json it
     is everything a second person needs, in a fresh process, to reproduce the
     exact action sequences and portfolio traces an evaluation run recorded.
     """
@@ -306,6 +310,58 @@ def _sanitize_scenario_id_for_filename(scenario_id: str) -> str:
     return scenario_id.replace(":", "_")
 
 
+def _checkpoint_evaluation_settings(
+    config: EnvironmentConfig,
+    metadata: CheckpointMetadata,
+    checkpoint_path: Path,
+) -> dict[str, object]:
+    reference_price = config.market.quotes[MarketRegime.NORMAL].pack_ask
+    training_manifest_path = checkpoint_path.parent / "run_manifest.json"
+    source = "legacy_v1_fixed_settings"
+    if training_manifest_path.exists():
+        with training_manifest_path.open(encoding="utf-8") as manifest_file:
+            training_manifest = json.load(manifest_file)
+        if not isinstance(training_manifest, Mapping):
+            raise ValueError("training manifest must be a JSON object")
+        manifest_version = _integer(training_manifest.get("manifest_version"), "manifest_version", minimum=1)
+        if manifest_version != 1:
+            raise ValueError("unsupported training manifest_version")
+        if training_manifest.get("checkpoint_file") != checkpoint_path.name:
+            raise ValueError("training manifest checkpoint_file does not match checkpoint")
+        if training_manifest.get("environment_config_hash") != metadata.environment_config_hash:
+            raise ValueError("training manifest environment_config_hash does not match checkpoint")
+        training_seed = _integer(training_manifest.get("training_seed"), "training_seed")
+        if training_seed != metadata.training_seed:
+            raise ValueError("training manifest training_seed does not match checkpoint")
+        capacity = _integer(training_manifest.get("inventory_capacity"), "inventory_capacity", minimum=1)
+        if capacity != DEFAULT_INVENTORY_CAPACITY:
+            raise ValueError("training manifest inventory_capacity differs from fixed training capacity")
+        recorded_price = _positive_float(
+            training_manifest.get("observation_reference_price"), "observation_reference_price"
+        )
+        if recorded_price != reference_price:
+            raise ValueError("training manifest observation_reference_price does not match environment")
+        source = "training_manifest"
+
+    # Keep the scenario/config hash unchanged: these settings have a separate
+    # identity, so old checkpoints and latent scenario draws remain compatible.
+    settings = {
+        "environment_config_hash": config.config_hash,
+        "inventory_capacity": DEFAULT_INVENTORY_CAPACITY,
+        "observation_reference_price": reference_price,
+    }
+    payload = json.dumps(settings, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return {
+        "settings_version": 1,
+        **settings,
+        "settings_hash": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+        "training_settings_source": source,
+        "training_manifest_file": str(training_manifest_path) if source == "training_manifest" else None,
+        "checkpoint_file": str(checkpoint_path),
+        "evaluation_manifest_file": "evaluation_manifest.json",
+    }
+
+
 def evaluate_checkpoint_on_split(
     *,
     checkpoint_path: str | Path,
@@ -328,11 +384,18 @@ def evaluate_checkpoint_on_split(
     split manifest's environment configuration, so an incompatible
     observation/action schema fails clearly rather than silently producing
     meaningless actions.
+
+    Capacity must match the current v1 training convention. A companion
+    training manifest is validated when present; detached v1 checkpoints use
+    the documented fixed settings. Resolved settings and their separate hash
+    are written to evaluation_settings.json without changing existing schemas.
     """
+    inventory_capacity = _integer(inventory_capacity, "inventory_capacity", minimum=1)
+    if inventory_capacity != DEFAULT_INVENTORY_CAPACITY:
+        raise ValueError("inventory_capacity must match the fixed training capacity (10)")
     checkpoint_path = Path(checkpoint_path).resolve()
     split_manifest_path = Path(split_manifest_path).resolve()
     output_directory = Path(output_directory)
-    output_directory.mkdir(parents=True, exist_ok=True)
 
     checkpoint_metadata: CheckpointMetadata = load_checkpoint_metadata(checkpoint_path)
     split: SplitManifest = load_split_manifest(split_manifest_path)
@@ -345,12 +408,14 @@ def evaluate_checkpoint_on_split(
             "against an incompatible observation/action schema"
         )
 
+    settings = _checkpoint_evaluation_settings(split.config, checkpoint_metadata, checkpoint_path)
     policy = load_trained_agent(checkpoint_path)
     git_commit, _git_dirty = git_metadata()
     simulator_version = importlib.metadata.version("packfolio")
     model_id = checkpoint_path.parent.name
 
     traces_directory = output_directory / "step_traces"
+    output_directory.mkdir(parents=True, exist_ok=True)
     traces_directory.mkdir(exist_ok=True)
 
     rows: list[EvaluationRow] = []
@@ -395,6 +460,9 @@ def evaluate_checkpoint_on_split(
         step_traces_directory=traces_directory.name,
     )
     write_evaluation_manifest(output_directory / "evaluation_manifest.json", manifest)
+    with (output_directory / "evaluation_settings.json").open("w", encoding="utf-8") as settings_file:
+        json.dump(settings, settings_file, indent=2, sort_keys=True, allow_nan=False)
+        settings_file.write("\n")
     return output_directory
 
 
