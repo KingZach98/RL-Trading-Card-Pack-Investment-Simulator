@@ -99,17 +99,19 @@ def is_numbered_card(card):
 
 if __name__ == "__main__":
     cards = load_cards("data/2020_panini_prizm_cards.csv")
-    base_cards = get_base_cards(cards)
-    burrow = next(
-        card for card in base_cards
-        if card["card"] == "Joe Burrow #307"
-    )
+    count = 0
 
-    parallel = get_parallel_version(
-        cards,
-        burrow,
-        "orange"
-    )
+    for card in cards:
+        name = card["card"]
+        
+        if "#" not in name:
+            continue
 
-    print(burrow["card"])
-    print(parallel["card"])
+        checklist_number = name.rsplit("#", 1)[1]
+
+        if not checklist_number.isdigit():
+            print(name)
+            count += 1
+
+            if count >= 50:
+                break

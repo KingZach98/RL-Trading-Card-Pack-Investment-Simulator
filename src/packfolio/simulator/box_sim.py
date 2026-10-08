@@ -47,6 +47,31 @@ def apply_numbered_parallels(box, cards):
 
     return box
 
+def apply_silver_parallels(box, cards):
+    # Only use slots that are not already numbered
+    available_indices = [
+        i for i, card in enumerate(box)
+        if not is_numbered_card(card)
+    ]
+
+    silver_indices = random.sample(
+        available_indices,
+        BOX_CONTENTS["silver"]
+    )
+
+    for index in silver_indices:
+        base_card = box[index]
+
+        silver_card = get_parallel_version(
+            cards,
+            base_card,
+            "silver"
+        )
+
+        if silver_card is not None:
+            box[index] = silver_card
+
+    return box
 
 def open_box():
     rookies = pull_random_cards(
@@ -64,6 +89,7 @@ def open_box():
     box = rookies + veterans
 
     box = apply_numbered_parallels(box, cards)
+    box = apply_silver_parallels(box, cards)
 
     return box
 
@@ -75,8 +101,19 @@ if __name__ == "__main__":
         if is_numbered_card(card)
     ]
 
+    silver = [
+        card for card in box
+        if "[silver]" in card["card"].lower()
+    ]
+
     print(f"Total cards: {len(box)}")
     print(f"Numbered cards: {len(numbered)}")
+    print(f"Silver cards: {len(silver)}")
 
+    print("\nNumbered:")
     for card in numbered:
+        print(card["card"])
+
+    print("\nSilver:")
+    for card in silver:
         print(card["card"])
