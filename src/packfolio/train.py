@@ -306,24 +306,6 @@ def _epsilon_at_step(config: AgentConfig, step: int) -> float:
     return config.epsilon_start + fraction * (config.epsilon_end - config.epsilon_start)
 
 
-def _bootstrap_target(
-    *,
-    reward_tensor: Any,
-    next_values: Any,
-    terminated_tensor: Any,
-    gamma: float,
-) -> Any:
-    """Compute the one-step TD target, excluding next-state value at terminal steps.
-
-    ``terminated_tensor`` is 1.0 exactly on the transition that reaches the
-    task horizon (see :class:`packfolio.env.PackfolioEnv`); multiplying by
-    ``(1.0 - terminated_tensor)`` drops ``next_values`` there regardless of
-    its magnitude, so a terminal transition never bootstraps beyond the
-    horizon.
-    """
-    return reward_tensor + gamma * next_values * (1.0 - terminated_tensor)
-
-
 def _optimize(
     *,
     torch: Any,
@@ -351,12 +333,7 @@ def _optimize(
     predicted = network(state_tensor).gather(1, action_tensor[:, None]).squeeze(1)
     with torch.no_grad():
         next_values = target_network(next_state_tensor).max(dim=1).values
-        target = _bootstrap_target(
-            reward_tensor=reward_tensor,
-            next_values=next_values,
-            terminated_tensor=terminated_tensor,
-            gamma=config.gamma,
-        )
+        target = reward_tensor + config.gamma * next_values * (1.0 - terminated_tensor)
     loss = loss_function(predicted, target)
     if not bool(torch.isfinite(loss)):
         raise FloatingPointError("DQN training produced a non-finite loss")

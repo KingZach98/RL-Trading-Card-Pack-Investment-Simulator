@@ -166,22 +166,3 @@ environment. A caller can build or train the returned Q network and pass it to
 `DQNAgent.from_torch`; this module does not yet own an environment rollout,
 replay buffer, or optimizer loop. Install the optional `agent` extra to build
 or run a PyTorch-backed network.
-
-## Agent sanity checks and diagnostic fixtures (PF-17)
-
-`configs/diagnostics/` has small environment/pack fixtures with a known best
-action (always buy-and-open, or always hold), isolated from market or pack
-randomness. `packfolio.diagnostics.run_greedy_rollout` replays a trained
-checkpoint greedily against a fixture, reports executed/requested action
-counts, reward scale, and Q-value ranges, and raises immediately on any
-non-finite network output or reward:
-
-```powershell
-.\.venv\Scripts\python.exe -m packfolio.diagnostics --checkpoint <run_directory>\checkpoint.pt --environment-config configs\diagnostics\profitable_opening_environment.json
-```
-
-See [`docs/learning_check.md`](docs/learning_check.md) for the fixed smoke
-budget used, what was observed, and the documented requested-vs-executed
-action distinction. These fixtures are a debugging aid, not a substitute for
-final experiments on the frozen market.
-
