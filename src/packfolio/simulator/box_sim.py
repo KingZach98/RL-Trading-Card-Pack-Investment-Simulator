@@ -90,9 +90,39 @@ def open_box():
 
     box = apply_numbered_parallels(box, cards)
     box = apply_silver_parallels(box, cards)
+    box = apply_inserts(box)
+    inserts = [
+    card for card in box
+    if card.get("type") == "insert"
+    ]
+
+    print(f"Inserts: {len(inserts)}")
 
     return box
 
+def create_insert():
+    return {
+        "card": "Simulated Insert",
+        "type": "insert",
+        "ungraded": None
+    }
+
+def apply_inserts(box):
+    available_indices = [
+        i for i, card in enumerate(box)
+        if not is_numbered_card(card)
+        and "[silver]" not in card["card"].lower()
+    ]
+
+    insert_indices = random.sample(
+        available_indices,
+        BOX_CONTENTS["inserts"]
+    )
+
+    for index in insert_indices:
+        box[index] = create_insert()
+
+    return box
 if __name__ == "__main__":
     box = open_box()
 

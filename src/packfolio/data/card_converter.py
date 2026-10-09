@@ -97,21 +97,20 @@ def is_numbered_card(card):
 
     return False
 
+
+
 if __name__ == "__main__":
     cards = load_cards("data/2020_panini_prizm_cards.csv")
-    count = 0
+    test_players = [
+        "Patrick Mahomes II",
+        "Tom Brady",
+        "Joe Burrow",
+        "Justin Herbert"
+    ]
 
     for card in cards:
-        name = card["card"]
-        
-        if "#" not in name:
-            continue
-
-        checklist_number = name.rsplit("#", 1)[1]
-
-        if not checklist_number.isdigit():
-            print(name)
-            count += 1
-
-            if count >= 50:
-                break
+        if any(
+            player.lower() in card["card"].lower()
+            for player in test_players
+        ):
+            print(card["card"])
