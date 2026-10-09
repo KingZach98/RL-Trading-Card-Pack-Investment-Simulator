@@ -6,9 +6,9 @@ from packfolio.data.card_converter import (
     get_base_rookies,
     get_base_veterans,
     pull_random_cards,
-    pull_card_by_parallel,
     get_parallel_version,
-    is_numbered_card
+    is_numbered_card,
+    pull_random_autographs,
 )
 cards = load_cards("data/2020_panini_prizm_cards.csv")
 rookie_pool = get_base_rookies(cards)
@@ -73,6 +73,29 @@ def apply_silver_parallels(box, cards):
 
     return box
 
+def apply_autographs(box, cards):
+    available_indices = [
+        i for i, card in enumerate(box)
+        if not is_numbered_card(card)
+        and "[silver]" not in card["card"].lower()
+        and card.get("type") != "insert"
+    ]
+
+    autograph_indices = random.sample(
+        available_indices,
+        BOX_CONTENTS["autographs"]
+    )
+
+    autographs = pull_random_autographs(
+        cards,
+        BOX_CONTENTS["autographs"]
+    )
+
+    for index, autograph in zip(autograph_indices, autographs):
+        box[index] = autograph
+
+    return box
+
 def open_box():
     rookies = pull_random_cards(
         rookie_pool,
@@ -91,12 +114,7 @@ def open_box():
     box = apply_numbered_parallels(box, cards)
     box = apply_silver_parallels(box, cards)
     box = apply_inserts(box)
-    inserts = [
-    card for card in box
-    if card.get("type") == "insert"
-    ]
-
-    print(f"Inserts: {len(inserts)}")
+    box = apply_autographs(box, cards)
 
     return box
 
@@ -131,19 +149,23 @@ if __name__ == "__main__":
         if is_numbered_card(card)
     ]
 
-    silver = [
+    silvers = [
         card for card in box
         if "[silver]" in card["card"].lower()
     ]
 
-    print(f"Total cards: {len(box)}")
-    print(f"Numbered cards: {len(numbered)}")
-    print(f"Silver cards: {len(silver)}")
+    inserts = [
+        card for card in box
+        if card.get("type") == "insert"
+    ]
 
-    print("\nNumbered:")
-    for card in numbered:
-        print(card["card"])
+    autographs = [
+        card for card in box
+        if "[autograph" in card["card"].lower()
+    ]
 
-    print("\nSilver:")
-    for card in silver:
-        print(card["card"])
+    print("Total cards:", len(box))
+    print("Numbered:", len(numbered))
+    print("Silver:", len(silvers))
+    print("Inserts:", len(inserts))
+    print("Autographs:", len(autographs))

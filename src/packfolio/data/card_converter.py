@@ -97,20 +97,73 @@ def is_numbered_card(card):
 
     return False
 
+def get_autograph_cards(cards):
+    excluded = [
+        "no huddle",
+        "red shimmer",
+        "blue shimmer",
+        "green shimmer",
+        "neon green pulsar",
+        "pink"
+    ]
 
+    autographs = []
+
+    for card in cards:
+        name = card["card"].lower()
+
+        if "[autograph" not in name:
+            continue
+
+        if any(excluded_name in name for excluded_name in excluded):
+            continue
+
+        autographs.append(card)
+
+    return autographs
+
+def get_autograph_variants(cards):
+    variants = {}
+
+    for card in get_autograph_cards(cards):
+        name = card["card"]
+
+        start = name.find("[")
+        end = name.find("]")
+
+        if start != -1 and end != -1:
+            variant = name[start + 1:end]
+            variants[variant] = variants.get(variant, 0) + 1
+
+    return variants
+
+def pull_random_autographs(cards, amount):
+    autographs = get_autograph_cards(cards)
+
+    weights = [
+        int(card["print_run"])
+        for card in autographs
+    ]
+
+    return random.choices(
+        autographs,
+        weights=weights,
+        k=amount
+    )
 
 if __name__ == "__main__":
     cards = load_cards("data/2020_panini_prizm_cards.csv")
-    test_players = [
-        "Patrick Mahomes II",
-        "Tom Brady",
-        "Joe Burrow",
-        "Justin Herbert"
+
+    autographs = get_autograph_cards(cards)
+
+    with_print_run = [
+        card for card in autographs
+        if card.get("print_run") not in ("", None)
     ]
 
-    for card in cards:
-        if any(
-            player.lower() in card["card"].lower()
-            for player in test_players
-        ):
-            print(card["card"])
+    print("Total autographs:", len(autographs))
+    print("Autographs with print run:", len(with_print_run))
+
+    for card in with_print_run[:30]:
+        print(card["card"], "->", card["print_run"])
+        
