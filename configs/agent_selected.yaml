@@ -1,0 +1,30 @@
+# PF-21: agent hyperparameters selected by the validation-only tuning
+# comparison in docs/hyperparameter_tuning.md.
+#
+# This is the `baseline` config from configs/agent.yaml with its
+# `learning_rate` overridden to the winning `low_learning_rate` candidate
+# (0.0003 instead of 0.001). Every other hyperparameter, including
+# `total_steps` (the shared training budget), is unchanged from the
+# baseline so the comparison stayed on a single axis.
+#
+# `seed` below is a placeholder, not a tuning or final-replica seed: the
+# five retained final-replica models were trained from
+# packfolio.tune.FINAL_REPLICA_SEEDS = (20261013, 20261014, 20261015,
+# 20261016, 20261017), one independent model per seed, all retained in
+# runs/pf21-final-replicas/final_replicas_manifest.json regardless of
+# individual outcome. Re-run packfolio.tune.train_final_replicas with this
+# file as --baseline-agent-config (overriding `seed`) to train another
+# independent replica of the selected configuration.
+seed: 20261005
+total_steps: 2000
+hidden_layer_widths: [64, 64]
+learning_rate: 0.0003
+gamma: 1.0
+replay_capacity: 10000
+batch_size: 64
+learning_starts: 64
+target_update_interval: 250
+epsilon_start: 1.0
+epsilon_end: 0.05
+epsilon_decay_steps: 1500
+gradient_clip_norm: 10.0
