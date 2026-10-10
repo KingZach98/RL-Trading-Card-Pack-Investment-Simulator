@@ -1,0 +1,30 @@
+# =============================================================================
+# PF-20: predetermined fee-sensitivity variant — LOW selling fee (half of base)
+# =============================================================================
+# Status: Proposed — pending team review (see docs/decisions.md Section 8 and
+# docs/assumptions.md).
+#
+# This is one of two fee-sensitivity variants decided *before* any final
+# testing, to check how sensitive strategy comparisons are to the 5%
+# selling-fee assumption without touching the pack probability model, market
+# transitions, action constraints, or any other frozen setting. It must never
+# be chosen or adjusted after seeing comparison results (that would be tuning
+# the task to favor a particular policy, which PF-20 exists to prevent).
+#
+# Every field is identical to configs/env_frozen.yaml except selling_fee_rate,
+# which is halved from 0.05 to 0.025. This has its own, different
+# `config_hash` because selling_fee_rate is part of the hashed configuration.
+horizon: 100
+initial_cash: 100.0
+selling_fee_rate: 0.025
+pack_config: nfl_pack.json
+market:
+  initial_regime: NORMAL
+  quotes:
+    LOW: {pack_ask: 8.0, card_value_multiplier: 0.75}
+    NORMAL: {pack_ask: 10.0, card_value_multiplier: 1.0}
+    HIGH: {pack_ask: 12.0, card_value_multiplier: 1.6}
+  transition_matrix:
+    LOW: [0.7, 0.25, 0.05]
+    NORMAL: [0.15, 0.7, 0.15]
+    HIGH: [0.05, 0.25, 0.7]

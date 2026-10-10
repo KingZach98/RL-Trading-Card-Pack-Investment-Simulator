@@ -17,6 +17,20 @@ objective. Run training from the repository root with
 stores copies of both input files, the resolved environment, its checkpoint,
 episode metrics, and a manifest in a unique directory under `runs/`.
 
+`env_frozen.yaml` is PF-20's frozen base configuration: it resolves to the
+exact same settings as `environment.json` (same `config_hash`), but is a
+second, explicitly labeled, YAML artifact marking the task as frozen for
+PF-21 agent tuning and final testing. `env_frozen_fee_low.yaml` and
+`env_frozen_fee_high.yaml` are the two predetermined fee-sensitivity variants
+decided before final testing (selling fee halved to 2.5% and doubled to 10%,
+respectively); every other field matches the frozen base. Loaders accept
+either JSON or YAML files, dispatched by file extension, and apply the same
+strict validation either way. See
+[`docs/assumptions.md`](../docs/assumptions.md) for the audit this freeze is
+based on and [`docs/decisions.md`](../docs/decisions.md) Section 8 for the
+freeze decision record. Any later change to these frozen files must create a
+new version/configuration hash and rerun every affected comparison.
+
 `diagnostics/` holds small, hand-picked environment/pack/agent fixtures with a
 known best action (always open, or always hold), used for PF-17 agent smoke
 tests rather than final experiments. See

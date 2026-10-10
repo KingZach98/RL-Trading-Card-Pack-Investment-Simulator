@@ -241,11 +241,25 @@ class EnvironmentConfig:
 
 
 def load_environment_config(path: str | Path) -> EnvironmentConfig:
-    """Load strict JSON settings; pack_config is relative to this file."""
+    """Load strict JSON or YAML settings; pack_config is relative to this file.
+
+    YAML is parsed with ``yaml.safe_load``, which produces the same native
+    dict/list/str/int/float/bool/None structure as ``json.load``, so a frozen
+    ``.yaml``/``.yml`` configuration (see PF-20, ``configs/env_frozen.yaml``)
+    validates identically to the equivalent JSON file and shares its
+    ``config_hash`` when the resolved settings match. PyYAML is only imported
+    when a YAML file is actually loaded, so JSON-only callers do not need it.
+    """
     path = Path(path)
     with path.open(encoding="utf-8") as file:
+        if path.suffix.lower() in (".yaml", ".yml"):
+            import yaml
+
+            raw = yaml.safe_load(file)
+        else:
+            raw = json.load(file)
         data = _json_record(
-            json.load(file),
+            raw,
             {"horizon", "initial_cash", "selling_fee_rate", "market", "pack_config"},
             "environment configuration",
         )

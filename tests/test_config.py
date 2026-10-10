@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 from packfolio.config import load_environment_config
 
@@ -103,6 +104,53 @@ def test_io_errors_are_not_hidden(tmp_path):
     path.write_text("{", encoding="utf-8")
     with pytest.raises(json.JSONDecodeError):
         load_environment_config(path)
+
+
+def test_yaml_loader_matches_equivalent_json(tmp_path, config):
+    """PF-20: YAML configs must validate and hash identically to equivalent JSON."""
+    data = json.loads((CONFIG_DIR / "environment.json").read_text(encoding="utf-8"))
+    data["pack_config"] = str(CONFIG_DIR / "nfl_pack.json")
+    path = tmp_path / "environment.yaml"
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    loaded = load_environment_config(path)
+    assert loaded.config_hash == config.config_hash
+    assert loaded.to_dict() == config.to_dict()
+
+
+def test_yaml_loader_rejects_invalid_configuration(tmp_path):
+    """YAML goes through the same strict validation as JSON, not a looser path."""
+    data = json.loads((CONFIG_DIR / "environment.json").read_text(encoding="utf-8"))
+    data["pack_config"] = str(CONFIG_DIR / "nfl_pack.json")
+    data["market"]["quotes"]["LOW"]["pack_ask"] = -1
+    path = tmp_path / "environment.yaml"
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises((ValueError, TypeError), match="pack_ask"):
+        load_environment_config(path)
+
+
+def test_env_frozen_yaml_matches_environment_json_hash(config):
+    """PF-20: the frozen base config must be bit-for-bit equivalent to the
+    config currently used by train/evaluate, so freezing it changes nothing."""
+    frozen = load_environment_config(CONFIG_DIR / "env_frozen.yaml")
+    assert frozen.config_hash == config.config_hash
+    assert frozen.to_dict() == config.to_dict()
+
+
+@pytest.mark.parametrize(
+    "variant_path, expected_fee",
+    [
+        ("env_frozen_fee_low.yaml", 0.025),
+        ("env_frozen_fee_high.yaml", 0.10),
+    ],
+)
+def test_env_frozen_fee_variants_change_only_the_fee(config, variant_path, expected_fee):
+    """PF-20: predetermined fee-sensitivity variants must differ from the
+    frozen base only in selling_fee_rate, and must have their own distinct
+    hash so comparisons can tell them apart."""
+    variant = load_environment_config(CONFIG_DIR / variant_path)
+    assert variant.selling_fee_rate == expected_fee
+    assert variant.config_hash != config.config_hash
+    assert replace(variant, selling_fee_rate=config.selling_fee_rate).to_dict() == config.to_dict()
 
 
 def test_probability_and_price_assumptions_are_labeled_synthetic():
