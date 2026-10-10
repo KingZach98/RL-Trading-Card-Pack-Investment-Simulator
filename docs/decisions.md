@@ -141,3 +141,88 @@ seeded scenario paths do not change in this prep batch.
 
 After the PF-20 experimental freeze, any simulator change must create a new
 version/configuration hash and rerun every affected comparison.
+
+## 8. PF-20 — Environment audit and freeze
+
+| Field | Value |
+|---|---|
+| PF task | PF-20 |
+| Document status | **Proposed — pending team review** (not yet approved; see Section 8.4) |
+| Depends on | PF-01 (environment rules), PF-09 (pack odds/values), PF-13 (EV baseline), PF-19 (strategy comparison) |
+| Related documents | [`docs/assumptions.md`](assumptions.md) (full audit write-up), [`docs/development_comparison.md`](development_comparison.md) (dominant-strategy evidence), [`configs/env_frozen.yaml`](../configs/env_frozen.yaml), [`configs/env_frozen_fee_low.yaml`](../configs/env_frozen_fee_low.yaml), [`configs/env_frozen_fee_high.yaml`](../configs/env_frozen_fee_high.yaml) |
+
+This section records the PF-20 audit findings and the proposed freeze. Like
+Section 1, nothing here is approved merely because it appears in this file;
+see 8.4 for the required sign-off before PF-21 treats this as final.
+
+### 8.1 Audit outcome
+
+- **Code review** of `market.py`, `packs.py`, `portfolio.py`, `env.py`,
+  `baselines.py`, and `ev_baseline.py` found no code defects: fee
+  application, terminal liquidation, step timing, and action constraints
+  match the PF-01 decision register (notably PF01-D16/D17) and PF-13's
+  documented information-boundary rules. See `docs/assumptions.md` Section 2
+  for the file-by-file review.
+- **No forcing of every action to be attractive.** `ALWAYS_OPEN` is a
+  dominant simple strategy (mean terminal value 446.1 vs. 100.0/109.0/129.3
+  for `CASH_ONLY`/`BUY_AND_HOLD`/`EV_ONE_STEP`, and 215.0 for the PF-19 DQN
+  pilot — `docs/development_comparison.md`). `docs/assumptions.md` Section 3
+  shows this is an unconditionally positive expected value of buying and
+  opening a pack in every market regime at the current pack values and ask
+  prices, not an environment bug and not something retuned to help the
+  agent; it is an explicit, labeled property of the PF09-D01 pack values.
+- **Undocumented currency rescale resolved.** `configs/environment.json`
+  and `configs/nfl_pack.json` already use starting cash and market quotes
+  divided by 100 from the PF-01 draft proposals (PF01-D05, PF01-D22),
+  consistent with the PF09-D01 pack-value rescale, but this was never
+  logged as its own change. PF20-D01/PF20-D02 below record the operative
+  values explicitly.
+- **Horizon ambiguity resolved.** PF01-D04 still proposes `52`, but every
+  validated PF-13/17/18/19 artifact and the shipped `environment.json` use
+  `100`. PF20-D03 formalizes `100` as the frozen value rather than leaving
+  the register and the configs disagreeing.
+
+### 8.2 Proposed changes (pending approval)
+
+| Change ID | Date | Decision/spec section | Old value/rule | New value/rule | Reason | Proposed by | Version impact |
+|---|---|---|---|---|---|---|---|
+| PF20-D01 | 2026-10-08 | PF01-D05; `configs/environment.json` | Draft proposal: starting cash `10,000` virtual kr | Operative value: `100.0` simulation units | Starting cash was already rescaled by ÷100 alongside the PF09-D01 pack-value rescale, but never logged as its own change; this records the value already in use rather than changing it | PF-20 audit (pending team sign-off) | None — `environment.json` already used `100.0`; no `config_hash` change |
+| PF20-D02 | 2026-10-08 | PF01-D22; `configs/environment.json` | Draft proposal: quotes `LOW: 800, 0.75`; `NORMAL: 1,000, 1.00`; `HIGH: 1,200, 1.60` | Operative quotes: `LOW: 8, 0.75`; `NORMAL: 10, 1.00`; `HIGH: 12, 1.60` | Same ÷100 rescale as PF20-D01, recorded for the market quotes | PF-20 audit (pending team sign-off) | None — `environment.json` already used these values; no `config_hash` change |
+| PF20-D03 | 2026-10-08 | PF01-D04; `docs/ev_baseline.md` | Draft proposal: `52` weekly decisions | Operative value: `100` steps | Horizon `100` has been in de facto use since before PF-13 across every validated artifact; this resolves the stale register-vs-config disagreement instead of reopening it later | PF-20 audit (pending team sign-off) | None — resolves a documentation ambiguity only; `environment.json` already used `100` |
+| PF20-D04 | 2026-10-08 | New — environment freeze | No frozen artifact existed before PF-20 | Base config `configs/env_frozen.yaml` (`config_hash` `57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330`, identical resolved settings to `configs/environment.json`); fee-sensitivity variants `configs/env_frozen_fee_low.yaml` (2.5% fee) and `configs/env_frozen_fee_high.yaml` (10% fee); final-test manifest `configs/splits/final_test.json` recorded as-is and not used to tune this freeze | Gives PF-21 one fixed, hashed task instead of an evolving simulator, with predetermined fee variants decided before final testing | PF-20 audit (pending team sign-off) | New config artifacts/versions; existing `environment.json` hash is unchanged |
+
+PF20-D01 through PF20-D04 are **proposed**, not approved — unlike PF09-D01,
+no team member or project owner has signed off on these yet. They become
+effective, and should be copied into Section 7 as approved changes, only
+after Section 8.4 is completed.
+
+### 8.3 Frozen artifacts
+
+| Artifact | Purpose | `config_hash` |
+|---|---|---|
+| `configs/env_frozen.yaml` | Frozen base environment (same resolved settings as `configs/environment.json`) | `57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330` |
+| `configs/env_frozen_fee_low.yaml` | Fee-sensitivity variant: `selling_fee_rate` halved to `0.025` | `b4c57d02b506d60f85ab4adcfeb18a61672a8af5f508deabd96eeb6b94a3bbde` |
+| `configs/env_frozen_fee_high.yaml` | Fee-sensitivity variant: `selling_fee_rate` doubled to `0.10` | `1ca1c65ec8b610c6edf4c231f8b84d12531735ef6baeebc45fa8e0399079c31d` |
+| `configs/splits/final_test.json` | Final-test scenario manifest, recorded unchanged; owned by Saki and not used to tune the freeze | (see manifest `config_hash` field) |
+
+`python -m packfolio.validate --config <path>` passes all probability and
+market-transition diagnostics for all three frozen configs (fee does not
+change pack/market distributions, only the selling fee). See
+`docs/assumptions.md` Section 4 for the full diagnostic output.
+
+### 8.4 Sign-off
+
+By signing off, each member confirms they reviewed the audit outcome (8.1),
+the proposed changes (8.2), and the frozen artifacts (8.3), and approves one
+hashed base configuration as required by the PF-20 acceptance criteria.
+
+| Member | Project role | Reviewed? | Date | Approval or notes |
+|---|---|---|---|---|
+| Zachery | Environment/accounting; PF-01 owner | [ ] | | |
+| Tim | Simulation; PF-01 reviewer | [ ] | | |
+| Nasir | Agent/training | [ ] | | |
+| Saki | Baselines/evaluation; final-test manifest owner | [ ] | | |
+
+PF-20 should remain open, and PF-21 should not start tuning against this
+environment, until all four sign-offs above are recorded and PF20-D01
+through PF20-D04 are copied into Section 7 as approved changes.
