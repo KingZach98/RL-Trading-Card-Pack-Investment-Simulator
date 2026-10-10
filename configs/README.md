@@ -37,6 +37,15 @@ tests rather than final experiments. See
 [`docs/learning_check.md`](../docs/learning_check.md) for what each fixture
 tests, the fixed smoke budget, and what was observed when they last ran.
 
+`agent_selected.yaml` is `agent.yaml` with `learning_rate` overridden to the
+candidate selected by the PF-21 validation-only hyperparameter comparison
+(`packfolio.tune`); every other hyperparameter, including the training
+budget, is unchanged. Its `seed` field is a placeholder, not a training or
+final-replica seed. See
+[`docs/hyperparameter_tuning.md`](../docs/hyperparameter_tuning.md) for the
+predetermined candidate grid, seeds, selection rule, actual results, and the
+final replica manifest.
+
 Split manifests are separate files, with no implicit final-test loading:
 
 | Manifest | Owner | Seeds | Purpose |
