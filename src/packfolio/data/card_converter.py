@@ -151,6 +151,13 @@ def pull_random_autographs(cards, amount):
         k=amount
     )
 
+def find_card(cards, card_name):
+    for card in cards:
+        if card["card"] == card_name:
+            return card
+
+    return None
+
 if __name__ == "__main__":
     cards = load_cards("data/2020_panini_prizm_cards.csv")
 

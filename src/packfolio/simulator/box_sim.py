@@ -10,6 +10,8 @@ from packfolio.data.card_converter import (
     is_numbered_card,
     pull_random_autographs,
 )
+from data.market_data import get_card_market_factor
+
 cards = load_cards("data/2020_panini_prizm_cards.csv")
 rookie_pool = get_base_rookies(cards)
 veteran_pool = get_base_veterans(cards)
@@ -141,6 +143,20 @@ def apply_inserts(box):
         box[index] = create_insert()
 
     return box
+
+def calculate_box_value(box, date):
+    factor = get_card_market_factor(date)
+
+    total = 0.0
+
+    for card in box:
+        price = card.get("ungraded")
+
+        if price:
+            total += float(price) * factor
+
+    return total
+
 if __name__ == "__main__":
     box = open_box()
 
@@ -164,8 +180,29 @@ if __name__ == "__main__":
         if "[autograph" in card["card"].lower()
     ]
 
-    print("Total cards:", len(box))
-    print("Numbered:", len(numbered))
-    print("Silver:", len(silvers))
-    print("Inserts:", len(inserts))
-    print("Autographs:", len(autographs))
+    values = []
+    most_expensive_box = None
+    max_value = 0
+
+    for _ in range(1000):
+        box = open_box()
+        value = calculate_box_value(box, "2026-10")
+        values.append(value)
+
+        if value > max_value:
+            max_value = value
+            most_expensive_box = box
+
+    values.sort()
+
+    print("Mean:", sum(values) / len(values))
+    print("Median:", values[len(values) // 2])
+    print("Min:", min(values))
+    print("Max:", max(values))
+
+    print("\nMost expensive box:")
+    for card in most_expensive_box:
+        price = card.get("ungraded")
+
+        if price and float(price) > 100:
+            print(card["card"], "-", price)
