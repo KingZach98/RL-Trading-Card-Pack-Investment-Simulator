@@ -91,7 +91,7 @@ class TradingCardEnv(gym.Env):
         if self.done:
             raise RuntimeError("Episode has already finished.")
 
-        open_count, sell_count = action
+        open_count, sell_count = self.convert_action(action)
 
         # Validate action
         if open_count < 0 or sell_count < 0:
@@ -156,16 +156,19 @@ class TradingCardEnv(gym.Env):
 if __name__ == "__main__":
     env = TradingCardEnv(initial_boxes=100)
 
+    state = env.reset()
+
+    print("Initial state:", state)
+
     action = np.array(
         [0.2, 0.3, 0.5],
         dtype=np.float32
     )
 
-    open_count, sell_count = env.convert_action(action)
+    state, reward, done = env.step(action)
 
-    print("Open:", open_count)
-    print("Sell:", sell_count)
-    print(
-        "Keep:",
-        env.remaining_boxes - open_count - sell_count
-    )
+    print("\nAfter February:")
+    print("State:", state)
+    print("Reward:", reward)
+    print("Realized value:", env.realized_value)
+    print("Done:", done)
