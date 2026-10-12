@@ -2,7 +2,9 @@ import pandas as pd
 
 from packfolio.simulator.box_sim import open_box, calculate_box_value
 from data.market_data import get_card_market_factor
-
+import gymnasium as gym
+from gymnasium import spaces
+import numpy as np
 
 BOX_PRICE_PATH = "data/2020_panini_prizm_hobby_box_prices.csv"
 
@@ -11,14 +13,48 @@ OPEN = 1
 SELL = 2
 
 
-class TradingCardEnv:
+class TradingCardEnv(gym.Env):
     def __init__(self, initial_boxes=1):
+        self.action_space = spaces.Box(
+            low=0.0,
+            high=1.0,
+            shape=(3,),
+            dtype=np.float32
+        )
+
         self.initial_boxes = initial_boxes
         self.market_data = pd.read_csv(BOX_PRICE_PATH)
         self.market_data = self.market_data[
             self.market_data["date"] >= "2021-02"
         ].reset_index(drop=True)
         self.reset()
+
+    def convert_action(self, action):
+        action = np.asarray(action, dtype=np.float32)
+
+        if action.shape != (3,):
+            raise ValueError(
+                "Action must contain [open_weight, sell_weight, keep_weight]."
+            )
+
+        total = action.sum()
+
+        # If agent outputs [0, 0, 0], keep everything
+        if total == 0:
+            return 0, 0
+
+        proportions = action / total
+
+        open_count = int(
+            np.floor(proportions[0] * self.remaining_boxes)
+        )
+
+        sell_count = int(
+            np.floor(proportions[1] * self.remaining_boxes)
+        )
+
+        # Anything left automatically becomes KEEP
+        return open_count, sell_count
 
     def reset(self):
         self.current_step = 0
@@ -120,14 +156,16 @@ class TradingCardEnv:
 if __name__ == "__main__":
     env = TradingCardEnv(initial_boxes=100)
 
-    state = env.reset()
-    print("Initial state:", state)
+    action = np.array(
+        [0.2, 0.3, 0.5],
+        dtype=np.float32
+    )
 
-    # Open 0, sell 30, keep 70
-    state, reward, done = env.step((0, 30))
+    open_count, sell_count = env.convert_action(action)
 
-    print("\nAfter February:")
-    print("State:", state)
-    print("Reward:", reward)
-    print("Realized value:", env.realized_value)
-    print("Done:", done)
+    print("Open:", open_count)
+    print("Sell:", sell_count)
+    print(
+        "Keep:",
+        env.remaining_boxes - open_count - sell_count
+    )
