@@ -163,12 +163,29 @@ secrets/
 
 # Generated simulations and training artifacts
 outputs/
-runs/
+/runs/*
 checkpoints/
 *.pt
 *.pth
 *.ckpt
 *.npz
+
+# Publish only the frozen PF-21 handoff; new runs and evaluations stay ignored.
+!/runs/pf21-final-replicas/
+/runs/pf21-final-replicas/*
+!/runs/pf21-final-replicas/final_replicas_manifest.json
+!/runs/pf21-final-replicas/20261010T015008.025131Z-1854d265/
+!/runs/pf21-final-replicas/20261010T015010.102590Z-a3b92e2d/
+!/runs/pf21-final-replicas/20261010T015012.273007Z-633d28f0/
+!/runs/pf21-final-replicas/20261010T015014.421835Z-40844f94/
+!/runs/pf21-final-replicas/20261010T015016.590182Z-b79ff8f6/
+/runs/pf21-final-replicas/*/*
+!/runs/pf21-final-replicas/*/agent_config.yaml
+!/runs/pf21-final-replicas/*/checkpoint.pt
+!/runs/pf21-final-replicas/*/environment_config.json
+!/runs/pf21-final-replicas/*/environment_resolved.json
+!/runs/pf21-final-replicas/*/run_manifest.json
+!/runs/pf21-final-replicas/*/training_metrics.jsonl
 
 # Spyder project settings
 .spyderproject

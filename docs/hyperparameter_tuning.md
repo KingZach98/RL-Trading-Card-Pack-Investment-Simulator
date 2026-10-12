@@ -133,6 +133,52 @@ checkpoint/manifest format; see
 [`docs/development_comparison.md`](development_comparison.md) for how PF-19
 evaluated an earlier checkpoint through that same reload path.
 
+### Published PF-22 handoff
+
+The five frozen run directories above and their
+[`final_replicas_manifest.json`](../runs/pf21-final-replicas/final_replicas_manifest.json)
+are tracked in Git. Each checkpoint is 90,549 bytes (452,745 bytes for all
+five), so Git LFS or a separate download is not needed. Each run includes
+`checkpoint.pt`, `run_manifest.json`, `agent_config.yaml`,
+`environment_config.json`, `environment_resolved.json`, and
+`training_metrics.jsonl`. The original weights, seeds, configurations and
+training provenance are retained; the models were not retrained.
+
+`run_directory` in the final replica manifest is now relative to the
+directory containing that manifest, not the original author's absolute
+Windows path. Resolve it as `manifest_path.parent / replica["run_directory"]`.
+New manifests produced by `train_final_replicas` use the same convention.
+Absolute source paths inside individual training manifests remain historical
+provenance; evaluation uses the checkpoint and the supplied scenario split,
+not those source paths.
+
+After pulling `dev`, PF-22 can evaluate **every** frozen replica from the
+repository root without retraining:
+
+```powershell
+$manifestPath = Join-Path $PWD 'runs\pf21-final-replicas\final_replicas_manifest.json'
+$manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+foreach ($replica in $manifest.replicas) {
+    if ($replica.status -ne 'success') { throw "Replica $($replica.seed) is not successful" }
+    $runDirectory = Join-Path (Split-Path $manifestPath) $replica.run_directory
+    $checkpoint = Join-Path $runDirectory 'checkpoint.pt'
+    if (-not (Test-Path $checkpoint -PathType Leaf)) { throw "Missing checkpoint: $checkpoint" }
+    .\.venv\Scripts\python.exe -m packfolio.evaluate `
+        --checkpoint $checkpoint `
+        --split-manifest configs\splits\final_test.json `
+        --output "outputs\pf22\$($replica.seed)"
+    if ($LASTEXITCODE -ne 0) { throw "Evaluation failed for seed $($replica.seed)" }
+}
+```
+
+This writes per-model raw evaluation records; PF-22 still needs to implement
+its baseline comparisons, aggregation and uncertainty summaries. The handoff
+verification reloads all five checkpoints after relocation and evaluates
+only validation scenarios; it does **not** run the held-out test split.
+The ignore rules allow only these five frozen directories and their training
+files. Other runs, tuning artifacts and new evaluation outputs remain
+ignored.
+
 ## Status and provenance
 
 The candidate grid, seed lists, and selection rule in this note were

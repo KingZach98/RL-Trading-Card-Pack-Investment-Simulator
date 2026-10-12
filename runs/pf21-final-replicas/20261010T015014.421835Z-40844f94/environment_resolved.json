@@ -1,0 +1,93 @@
+{
+  "horizon": 100,
+  "initial_cash": 100.0,
+  "market": {
+    "initial_regime": "NORMAL",
+    "quotes": {
+      "HIGH": {
+        "card_value_multiplier": 1.6,
+        "pack_ask": 12.0
+      },
+      "LOW": {
+        "card_value_multiplier": 0.75,
+        "pack_ask": 8.0
+      },
+      "NORMAL": {
+        "card_value_multiplier": 1.0,
+        "pack_ask": 10.0
+      }
+    },
+    "transition_matrix": {
+      "HIGH": [
+        0.05,
+        0.25,
+        0.7
+      ],
+      "LOW": [
+        0.7,
+        0.25,
+        0.05
+      ],
+      "NORMAL": [
+        0.15,
+        0.7,
+        0.15
+      ]
+    }
+  },
+  "pack": {
+    "cards_per_pack": 5,
+    "outcomes": [
+      {
+        "base_bundle_value": 5.0,
+        "contents": [
+          "NFL veteran quarterback base card",
+          "NFL veteran running back base card",
+          "NFL veteran wide receiver base card",
+          "NFL veteran tight end base card",
+          "NFL defensive player base card"
+        ],
+        "outcome_id": "base_bundle",
+        "probability": 0.7
+      },
+      {
+        "base_bundle_value": 15.0,
+        "contents": [
+          "NFL veteran quarterback base card",
+          "NFL veteran running back base card",
+          "NFL veteran wide receiver base card",
+          "NFL defensive player base card",
+          "NFL rookie quarterback card"
+        ],
+        "outcome_id": "rookie_bundle",
+        "probability": 0.2
+      },
+      {
+        "base_bundle_value": 75.0,
+        "contents": [
+          "NFL veteran quarterback base card",
+          "NFL veteran running back base card",
+          "NFL veteran wide receiver base card",
+          "NFL defensive player base card",
+          "NFL rookie autograph card"
+        ],
+        "outcome_id": "autograph_bundle",
+        "probability": 0.09
+      },
+      {
+        "base_bundle_value": 250.0,
+        "contents": [
+          "NFL veteran quarterback base card",
+          "NFL veteran running back base card",
+          "NFL veteran wide receiver base card",
+          "NFL rookie quarterback card",
+          "NFL numbered star autograph card"
+        ],
+        "outcome_id": "premium_bundle",
+        "probability": 0.01
+      }
+    ],
+    "pack_id": "synthetic_nfl_five_card"
+  },
+  "selling_fee_rate": 0.05
+}

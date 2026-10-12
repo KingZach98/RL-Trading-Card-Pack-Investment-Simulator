@@ -1,0 +1,42 @@
+{
+  "created_at_utc": "2026-10-10T01:50:18.670184+00:00",
+  "final_replica_seeds": [
+    20261013,
+    20261014,
+    20261015,
+    20261016,
+    20261017
+  ],
+  "final_replicas_version": 1,
+  "replicas": [
+    {
+      "run_directory": "20261010T015008.025131Z-1854d265",
+      "seed": 20261013,
+      "status": "success"
+    },
+    {
+      "run_directory": "20261010T015010.102590Z-a3b92e2d",
+      "seed": 20261014,
+      "status": "success"
+    },
+    {
+      "run_directory": "20261010T015012.273007Z-633d28f0",
+      "seed": 20261015,
+      "status": "success"
+    },
+    {
+      "run_directory": "20261010T015014.421835Z-40844f94",
+      "seed": 20261016,
+      "status": "success"
+    },
+    {
+      "run_directory": "20261010T015016.590182Z-b79ff8f6",
+      "seed": 20261017,
+      "status": "success"
+    }
+  ],
+  "selected_candidate": "low_learning_rate",
+  "selected_overrides": {
+    "learning_rate": 0.0003
+  }
+}
