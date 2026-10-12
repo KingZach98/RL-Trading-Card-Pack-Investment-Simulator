@@ -11,13 +11,17 @@ budget rather than real training time. They are integration coverage for
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import shutil
 
 import pytest
 
 pytest.importorskip("torch")
 
 from packfolio import tune
+from packfolio.agents.dqn_agent import load_checkpoint_metadata
+from packfolio.evaluate import evaluate_checkpoint_on_split, read_evaluation_rows_jsonl
 from packfolio.scenarios import load_split_manifest
 
 from tests.test_evaluate_reload import write_split_manifest
@@ -187,6 +191,55 @@ def test_train_final_replicas_retains_every_seed_including_failures(tmp_path, ti
     assert [r["status"] for r in manifest["replicas"]] == ["success", "success", "failed"]
     assert manifest["selected_candidate"] == "baseline"
     assert (tmp_path / "final-replicas" / "final_replicas_manifest.json").exists()
+    for replica in manifest["replicas"]:
+        if replica["status"] == "success":
+            run_path = Path(replica["run_directory"])
+            assert not run_path.is_absolute()
+            assert (tmp_path / "final-replicas" / run_path / "checkpoint.pt").is_file()
+
+
+@pytest.mark.parametrize("seed", tune.FINAL_REPLICA_SEEDS)
+def test_published_final_replica_reloads_after_relocation(tmp_path, seed):
+    repository_root = Path(__file__).resolve().parents[1]
+    bundle = shutil.copytree(
+        repository_root / "runs" / "pf21-final-replicas",
+        tmp_path / "relocated-replicas",
+    )
+    manifest = json.loads((bundle / "final_replicas_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["final_replica_seeds"] == list(tune.FINAL_REPLICA_SEEDS)
+    assert [replica["seed"] for replica in manifest["replicas"]] == list(tune.FINAL_REPLICA_SEEDS)
+    assert all(replica["status"] == "success" for replica in manifest["replicas"])
+    assert manifest["selected_candidate"] == "low_learning_rate"
+    assert manifest["selected_overrides"] == {"learning_rate": 0.0003}
+    replica = next(replica for replica in manifest["replicas"] if replica["seed"] == seed)
+    run_path = Path(replica["run_directory"])
+    assert not run_path.is_absolute()
+    assert run_path.parts == (run_path.name,)
+    run_directory = bundle / run_path
+    run_manifest = json.loads((run_directory / "run_manifest.json").read_text(encoding="utf-8"))
+    assert run_manifest["status"] == "complete"
+    assert run_manifest["actual_environment_steps"] == 2000
+    assert run_manifest["training_seed"] == seed
+    for field in (
+        "agent_config_file",
+        "checkpoint_file",
+        "environment_config_file",
+        "environment_resolved_file",
+        "metrics_file",
+    ):
+        assert (run_directory / run_manifest[field]).is_file()
+    checkpoint = run_directory / run_manifest["checkpoint_file"]
+    metadata = load_checkpoint_metadata(checkpoint)
+    assert metadata.training_seed == seed
+    assert metadata.environment_config_hash == run_manifest["environment_config_hash"]
+    output = evaluate_checkpoint_on_split(
+        checkpoint_path=checkpoint,
+        split_manifest_path=repository_root / "configs" / "splits" / "validation.json",
+        output_directory=tmp_path / "evaluation",
+    )
+    rows = read_evaluation_rows_jsonl(output / "evaluation_rows.jsonl")
+    assert len(rows) == 3
+    assert all(row.training_seed == seed and row.model_id == run_path.name for row in rows)
 
 
 def test_tuning_seeds_and_final_replica_seeds_are_disjoint():

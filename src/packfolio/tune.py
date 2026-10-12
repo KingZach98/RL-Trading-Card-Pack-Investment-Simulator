@@ -268,6 +268,9 @@ def train_final_replicas(
     any that fail to train -- selection already happened in :func:`run_tuning`
     using validation data only; this step must not perform a second,
     silent "keep only the best replica" selection.
+
+    Successful run directories are relative to the manifest's directory so
+    the complete output directory can be moved to another machine.
     """
     environment_config_path = Path(environment_config_path).resolve()
     baseline_agent_config_path = Path(baseline_agent_config_path).resolve()
@@ -285,7 +288,7 @@ def train_final_replicas(
             _write_agent_config_yaml(agent_config_path, agent_config)
             try:
                 run_directory = train(environment_config_path, agent_config_path, output_root)
-                replica.update(status="success", run_directory=str(run_directory))
+                replica.update(status="success", run_directory=run_directory.name)
             except Exception as error:  # noqa: BLE001 - record every outcome
                 replica.update(
                     status="failed",

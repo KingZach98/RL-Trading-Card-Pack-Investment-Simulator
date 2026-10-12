@@ -1,0 +1,19 @@
+{
+  "horizon": 100,
+  "initial_cash": 100.0,
+  "selling_fee_rate": 0.05,
+  "pack_config": "nfl_pack.json",
+  "market": {
+    "initial_regime": "NORMAL",
+    "quotes": {
+      "LOW": {"pack_ask": 8.0, "card_value_multiplier": 0.75},
+      "NORMAL": {"pack_ask": 10.0, "card_value_multiplier": 1.0},
+      "HIGH": {"pack_ask": 12.0, "card_value_multiplier": 1.6}
+    },
+    "transition_matrix": {
+      "LOW": [0.7, 0.25, 0.05],
+      "NORMAL": [0.15, 0.7, 0.15],
+      "HIGH": [0.05, 0.25, 0.7]
+    }
+  }
+}
