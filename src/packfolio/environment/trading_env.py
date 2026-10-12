@@ -17,6 +17,8 @@ SELL = 2
 class TradingCardEnv(gym.Env):
     def __init__(self, initial_boxes=1):
 
+        self.reward_scale = 100_000.0
+
         self.action_space = spaces.Box(
             low=-1.0,
             high=1.0,
@@ -136,6 +138,7 @@ class TradingCardEnv(gym.Env):
             - open_count
             - sell_count
         )
+
         opened_value = 0.0
 
         for _ in range(open_count):
@@ -144,9 +147,10 @@ class TradingCardEnv(gym.Env):
 
         sold_value = sell_count * sealed_price
 
-        reward = opened_value + sold_value
+        # Reward in actual dollars
+        dollar_reward = opened_value + sold_value
 
-        self.realized_value += reward
+        self.realized_value += dollar_reward
         self.remaining_boxes = keep_count
 
         terminated = False
@@ -167,6 +171,8 @@ class TradingCardEnv(gym.Env):
                 "realized_value": self.realized_value,
             }
 
+            reward = dollar_reward / self.reward_scale
+
             return (
                 np.zeros(4, dtype=np.float32),
                 reward,
@@ -175,9 +181,9 @@ class TradingCardEnv(gym.Env):
                 info,
             )
 
-
         self.current_step += 1
 
+        # End of historical data
         if self.current_step >= len(self.market_data):
             final_price = float(
                 self.market_data.iloc[-1]["price_usd"]
@@ -187,11 +193,13 @@ class TradingCardEnv(gym.Env):
                 self.remaining_boxes * final_price
             )
 
-            reward += liquidation_value
+            # Add liquidation in DOLLARS first
+            dollar_reward += liquidation_value
             self.realized_value += liquidation_value
-            liquidated_boxes = self.remaining_boxes
 
+            liquidated_boxes = self.remaining_boxes
             self.remaining_boxes = 0
+
             terminated = True
             self.done = True
 
@@ -206,6 +214,9 @@ class TradingCardEnv(gym.Env):
                 "liquidation_value": liquidation_value,
                 "realized_value": self.realized_value,
             }
+
+            # Scale the ENTIRE reward
+            reward = dollar_reward / self.reward_scale
 
             return (
                 np.zeros(4, dtype=np.float32),
@@ -226,6 +237,8 @@ class TradingCardEnv(gym.Env):
             "sold_value": sold_value,
             "realized_value": self.realized_value,
         }
+
+        reward = dollar_reward / self.reward_scale
 
         return (
             observation,
