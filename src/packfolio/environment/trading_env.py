@@ -15,10 +15,19 @@ SELL = 2
 
 class TradingCardEnv(gym.Env):
     def __init__(self, initial_boxes=1):
+
+        
         self.action_space = spaces.Box(
             low=0.0,
             high=1.0,
             shape=(3,),
+            dtype=np.float32
+        )
+
+
+        self.observation_space = spaces.Box(
+            low=np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32),
+            high=np.array([1.0, 1.0, 1.0, np.inf], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -27,7 +36,29 @@ class TradingCardEnv(gym.Env):
         self.market_data = self.market_data[
             self.market_data["date"] >= "2021-02"
         ].reset_index(drop=True)
+        
+        self.max_sealed_price = float(
+                    self.market_data["price_usd"].max()
+                )
         self.reset()
+
+    def get_observation(self):
+        state = self.get_state()
+
+        time = self.current_step / (len(self.market_data) - 1)
+        inventory = self.remaining_boxes / self.initial_boxes
+        sealed_price = state["sealed_price"] / self.max_sealed_price
+        card_market_factor = state["card_market_factor"]
+
+        return np.array(
+            [
+                time,
+                inventory,
+                sealed_price,
+                card_market_factor
+            ],
+            dtype=np.float32
+        )
 
     def convert_action(self, action):
         action = np.asarray(action, dtype=np.float32)
@@ -156,19 +187,9 @@ class TradingCardEnv(gym.Env):
 if __name__ == "__main__":
     env = TradingCardEnv(initial_boxes=100)
 
-    state = env.reset()
+    env.reset()
 
-    print("Initial state:", state)
-
-    action = np.array(
-        [0.2, 0.3, 0.5],
-        dtype=np.float32
-    )
-
-    state, reward, done = env.step(action)
-
-    print("\nAfter February:")
-    print("State:", state)
-    print("Reward:", reward)
-    print("Realized value:", env.realized_value)
-    print("Done:", done)
+    print("State:", env.get_state())
+    print("Observation:", env.get_observation())
+    print("Observation valid:",
+          env.observation_space.contains(env.get_observation()))
