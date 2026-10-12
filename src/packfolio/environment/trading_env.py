@@ -5,6 +5,7 @@ from data.market_data import get_card_market_factor
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+from stable_baselines3.common.env_checker import check_env
 
 BOX_PRICE_PATH = "data/2020_panini_prizm_hobby_box_prices.csv"
 
@@ -16,9 +17,8 @@ SELL = 2
 class TradingCardEnv(gym.Env):
     def __init__(self, initial_boxes=1):
 
-        
         self.action_space = spaces.Box(
-            low=0.0,
+            low=-1.0,
             high=1.0,
             shape=(3,),
             dtype=np.float32
@@ -36,7 +36,7 @@ class TradingCardEnv(gym.Env):
         self.market_data = self.market_data[
             self.market_data["date"] >= "2021-02"
         ].reset_index(drop=True)
-        
+
         self.max_sealed_price = float(
                     self.market_data["price_usd"].max()
                 )
@@ -68,13 +68,14 @@ class TradingCardEnv(gym.Env):
                 "Action must contain [open_weight, sell_weight, keep_weight]."
             )
 
-        total = action.sum()
+        weights = (action + 1.0) / 2.0
 
-        # If agent outputs [0, 0, 0], keep everything
+        total = weights.sum()
+
         if total == 0:
             return 0, 0
 
-        proportions = action / total
+        proportions = weights / total
 
         open_count = int(
             np.floor(proportions[0] * self.remaining_boxes)
@@ -84,16 +85,25 @@ class TradingCardEnv(gym.Env):
             np.floor(proportions[1] * self.remaining_boxes)
         )
 
-        # Anything left automatically becomes KEEP
         return open_count, sell_count
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+
         self.current_step = 0
         self.remaining_boxes = self.initial_boxes
         self.realized_value = 0.0
         self.done = False
 
-        return self.get_state()
+        observation = self.get_observation()
+
+        info = {
+            "date": self.get_state()["date"],
+            "remaining_boxes": self.remaining_boxes,
+            "realized_value": self.realized_value,
+        }
+
+        return observation, info
 
     def get_state(self):
 
@@ -111,37 +121,21 @@ class TradingCardEnv(gym.Env):
         }
 
     def step(self, action):
-        """
-        Perform one action.
-
-        Actions:
-            KEEP = 0
-            OPEN = 1
-            SELL = 2
-        """
         if self.done:
             raise RuntimeError("Episode has already finished.")
 
         open_count, sell_count = self.convert_action(action)
-
-        # Validate action
-        if open_count < 0 or sell_count < 0:
-            raise ValueError("OPEN and SELL counts cannot be negative.")
-
-        if open_count + sell_count > self.remaining_boxes:
-            raise ValueError(
-                f"Cannot use {open_count + sell_count} boxes "
-                f"when only {self.remaining_boxes} remain."
-            )
 
         state = self.get_state()
 
         date = state["date"]
         sealed_price = state["sealed_price"]
 
-        # Everything not opened or sold is kept
-        keep_count = self.remaining_boxes - open_count - sell_count
-
+        keep_count = (
+            self.remaining_boxes
+            - open_count
+            - sell_count
+        )
         opened_value = 0.0
 
         for _ in range(open_count):
@@ -153,16 +147,35 @@ class TradingCardEnv(gym.Env):
         reward = opened_value + sold_value
 
         self.realized_value += reward
-
-        # Only kept boxes remain in inventory
         self.remaining_boxes = keep_count
 
+        terminated = False
+        truncated = False
+
+        # No inventory remaining
         if self.remaining_boxes == 0:
+            terminated = True
             self.done = True
 
-            return None, reward, self.done
+            info = {
+                "date": date,
+                "opened_boxes": open_count,
+                "sold_boxes": sell_count,
+                "kept_boxes": 0,
+                "opened_value": opened_value,
+                "sold_value": sold_value,
+                "realized_value": self.realized_value,
+            }
 
-        # Move to next month
+            return (
+                np.zeros(4, dtype=np.float32),
+                reward,
+                terminated,
+                truncated,
+                info,
+            )
+
+
         self.current_step += 1
 
         if self.current_step >= len(self.market_data):
@@ -176,20 +189,55 @@ class TradingCardEnv(gym.Env):
 
             reward += liquidation_value
             self.realized_value += liquidation_value
+            liquidated_boxes = self.remaining_boxes
 
             self.remaining_boxes = 0
+            terminated = True
             self.done = True
 
-            return None, reward, self.done
+            info = {
+                "date": date,
+                "opened_boxes": open_count,
+                "sold_boxes": sell_count,
+                "kept_boxes": 0,
+                "liquidated_boxes": liquidated_boxes,
+                "opened_value": opened_value,
+                "sold_value": sold_value,
+                "liquidation_value": liquidation_value,
+                "realized_value": self.realized_value,
+            }
 
-        return self.get_state(), reward, self.done
+            return (
+                np.zeros(4, dtype=np.float32),
+                reward,
+                terminated,
+                truncated,
+                info,
+            )
+
+        observation = self.get_observation()
+
+        info = {
+            "date": date,
+            "opened_boxes": open_count,
+            "sold_boxes": sell_count,
+            "kept_boxes": self.remaining_boxes,
+            "opened_value": opened_value,
+            "sold_value": sold_value,
+            "realized_value": self.realized_value,
+        }
+
+        return (
+            observation,
+            reward,
+            terminated,
+            truncated,
+            info,
+        )
 
 if __name__ == "__main__":
     env = TradingCardEnv(initial_boxes=100)
 
-    env.reset()
+    check_env(env, warn=True)
 
-    print("State:", env.get_state())
-    print("Observation:", env.get_observation())
-    print("Observation valid:",
-          env.observation_space.contains(env.get_observation()))
+    print("Environment check passed!")
