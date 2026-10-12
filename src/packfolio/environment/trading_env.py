@@ -55,46 +55,57 @@ class TradingCardEnv:
         if self.done:
             raise RuntimeError("Episode has already finished.")
 
-        if action not in (KEEP, OPEN, SELL):
-            raise ValueError(f"Invalid action: {action}")
+        open_count, sell_count = action
+
+        # Validate action
+        if open_count < 0 or sell_count < 0:
+            raise ValueError("OPEN and SELL counts cannot be negative.")
+
+        if open_count + sell_count > self.remaining_boxes:
+            raise ValueError(
+                f"Cannot use {open_count + sell_count} boxes "
+                f"when only {self.remaining_boxes} remain."
+            )
 
         state = self.get_state()
 
         date = state["date"]
         sealed_price = state["sealed_price"]
 
-        reward = 0.0
+        # Everything not opened or sold is kept
+        keep_count = self.remaining_boxes - open_count - sell_count
 
-        if action == KEEP:
-            pass
+        opened_value = 0.0
 
-        elif action == OPEN:
+        for _ in range(open_count):
             box = open_box()
-            opened_value = calculate_box_value(box, date)
+            opened_value += calculate_box_value(box, date)
 
-            reward = opened_value
-            self.realized_value += opened_value
-            self.remaining_boxes -= 1
+        sold_value = sell_count * sealed_price
 
-        elif action == SELL:
-            reward = sealed_price
-            self.realized_value += sealed_price
-            self.remaining_boxes -= 1
+        reward = opened_value + sold_value
 
-        # If no boxes remain, there are no more decisions to make.
+        self.realized_value += reward
+
+        # Only kept boxes remain in inventory
+        self.remaining_boxes = keep_count
+
         if self.remaining_boxes == 0:
             self.done = True
+
             return None, reward, self.done
 
-        #increase month
+        # Move to next month
         self.current_step += 1
 
-        # If we reach the end of the historical data,
-        # automatically sell all remaining sealed boxes.
         if self.current_step >= len(self.market_data):
-            final_price = float(self.market_data.iloc[-1]["price_usd"])
+            final_price = float(
+                self.market_data.iloc[-1]["price_usd"]
+            )
 
-            liquidation_value = self.remaining_boxes * final_price
+            liquidation_value = (
+                self.remaining_boxes * final_price
+            )
 
             reward += liquidation_value
             self.realized_value += liquidation_value
@@ -107,17 +118,16 @@ class TradingCardEnv:
         return self.get_state(), reward, self.done
 
 if __name__ == "__main__":
-
-    env = TradingCardEnv(initial_boxes=1)
+    env = TradingCardEnv(initial_boxes=100)
 
     state = env.reset()
     print("Initial state:", state)
 
-    state, reward, done = env.step(OPEN)
-    ##state, reward, done = env.step(SELL)
-    ##state, reward, done = env.step(KEEP)
+    # Open 0, sell 30, keep 70
+    state, reward, done = env.step((0, 30))
 
+    print("\nAfter February:")
     print("State:", state)
     print("Reward:", reward)
+    print("Realized value:", env.realized_value)
     print("Done:", done)
-    print("Final realized value:", env.realized_value)
