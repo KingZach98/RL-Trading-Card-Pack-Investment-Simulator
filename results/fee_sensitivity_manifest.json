@@ -1,0 +1,70 @@
+{
+  "publication_version": 1,
+  "status": "validated corrected PF-23 run; not yet published",
+  "official_csv": {
+    "path": "results/fee_sensitivity.csv",
+    "sha256": "0d862a90164064ff90c0997278b4efe1825c65173ab4ccafe871ad7898db2be1",
+    "summary_rows": 27
+  },
+  "corrected_run": {
+    "directory": "outputs/pf23-corrected",
+    "manifest_sha256": "aee923abc43230dffbdac6d1f229c16ebb34c310f8fb8c451551cf7fbfed759c",
+    "episodes_sha256": "bf74667189b925d23ded0b899836f7976f37f4d557a2c5462e0fcb5c8c0a5798",
+    "original_summary": "results/fee_sensitivity_corrected.csv",
+    "new_episode_count": 9000,
+    "evaluation_and_recording_seconds": 274.15006040001754,
+    "git_commit": "76301a4405d204978561521c6a1998b765e0d779",
+    "git_working_tree_dirty": true
+  },
+  "protocol": {
+    "selling_fee_rates": [
+      0.025,
+      0.05,
+      0.1
+    ],
+    "scenario_count": 500,
+    "scenario_seeds": {
+      "first": 3001,
+      "last": 3500
+    },
+    "horizon": 100,
+    "randomness_source_config_hash": "57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330",
+    "split_manifest": "configs/splits/final_test_pf22.json",
+    "split_manifest_sha256": "f6b92a7b798d4e55a4f73dd75d66285cee7e2ae41d08989b74f68cccdc3adf34",
+    "dqn_status": "all five frozen checkpoints; no retraining or selection",
+    "ev_information_class": "model-informed; recomputed using each fee",
+    "bootstrap_seed": 23,
+    "bootstrap_resamples": 2000,
+    "confidence": 0.95
+  },
+  "checkpoint_sha256": {
+    "20261010T015008.025131Z-1854d265": "a51e6e2b3683621e3c1005e0e8da5d1de571b97e5ab66181557a69fcb907fc7c",
+    "20261010T015010.102590Z-a3b92e2d": "469685b3415d555b42e03682940dc09f41cbfb118c5d30953c3116e5e8047903",
+    "20261010T015012.273007Z-633d28f0": "cd6284493eeb46a642da412f7756926091b36aece6bed6f8a78dc1959f773d38",
+    "20261010T015014.421835Z-40844f94": "30d920e07e519b1440129cf5081ea96e3ae2dd5c3cb40e7d89ea44348a86e046",
+    "20261010T015016.590182Z-b79ff8f6": "4d23477259e9d37475b57cf88f9f87cbc8d9e12f6a91858cf7a12a967c94f53c"
+  },
+  "evidence_archive": {
+    "path": "outputs/pf23-publication/pf23-evidence.zip",
+    "sha256": "eadec8f4cf7962fb0f96338ffa92072f2be29fb92eb8eb7d8190e84b94f22969",
+    "bytes": 24634730,
+    "tracked_in_git": false,
+    "members": [
+      "pf23-corrected/episodes.jsonl.gz",
+      "pf23-corrected/manifest.json",
+      "fee_sensitivity_corrected.csv",
+      "pf22-results.zip"
+    ],
+    "pf22_archive_sha256": "732723093507f3d8e09ab4aaa353e66acee4b3f26cdefffadf3b022a431b3df1"
+  },
+  "failed_run": {
+    "directory": "outputs/pf23",
+    "csv": "outputs/pf23/fee_sensitivity_failed.csv",
+    "included_in_publication": false
+  },
+  "limitations": [
+    "Recorded run commit predates uncommitted PF-23 implementation; original dirty provenance preserved.",
+    "Evidence archive must be distributed separately; Git checkout alone lacks raw records.",
+    "Original manifests contain absolute paths; portable clean-checkout reproduction remains a PF-24 task."
+  ]
+}
