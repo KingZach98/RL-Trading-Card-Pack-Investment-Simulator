@@ -22,7 +22,7 @@ class TradingCardEnv(gym.Env):
         self.action_space = spaces.Box(
             low=-1.0,
             high=1.0,
-            shape=(3,),
+            shape=(2,),
             dtype=np.float32
         )
 
@@ -65,27 +65,27 @@ class TradingCardEnv(gym.Env):
     def convert_action(self, action):
         action = np.asarray(action, dtype=np.float32)
 
-        if action.shape != (3,):
+        if action.shape != (2,):
             raise ValueError(
-                "Action must contain [open_weight, sell_weight, keep_weight]."
+                "Action must contain [liquidate_fraction, open_share]."
             )
 
-        weights = (action + 1.0) / 2.0
+        # Convert PPO output from [-1, 1] to [0, 1]
+        liquidate_fraction = (action[0] + 1.0) / 2.0
+        open_share = (action[1] + 1.0) / 2.0
 
-        total = weights.sum()
+        # How many boxes should no longer be kept?
+        liquidate_count = int(
+            np.floor(liquidate_fraction * self.remaining_boxes)
+        )
 
-        if total == 0:
-            return 0, 0
-
-        proportions = weights / total
-
+        # Of those boxes, how many should be opened?
         open_count = int(
-            np.floor(proportions[0] * self.remaining_boxes)
+            np.floor(open_share * liquidate_count)
         )
 
-        sell_count = int(
-            np.floor(proportions[1] * self.remaining_boxes)
-        )
+        # The rest are sold
+        sell_count = liquidate_count - open_count
 
         return open_count, sell_count
 
