@@ -1,11 +1,16 @@
 from dataclasses import replace
 import json
+from math import nextafter
 from pathlib import Path
 
 import pytest
 import yaml
 
 from packfolio.config import load_environment_config
+from packfolio.env import build_environment
+from packfolio.market import snapshot_for
+from packfolio.portfolio import apply_action, liquidate, liquidation_value
+from packfolio.types import Action, MarketRegime, PortfolioSnapshot
 
 CONFIG_DIR = Path(__file__).resolve().parents[1] / "configs"
 
@@ -39,9 +44,44 @@ def test_invalid_environment_settings(config, field, value):
         replace(config, **{field: value})
 
 
-def test_fee_boundaries(config):
-    assert replace(config, selling_fee_rate=0).selling_fee_rate == 0.0
-    assert replace(config, selling_fee_rate=1).selling_fee_rate == 1.0
+@pytest.mark.parametrize("fee, valid", [
+    (nextafter(0.0, -1.0), False),
+    (0.0, True),
+    (0.05, True),
+    (nextafter(1.0, 0.0), True),
+    (1.0, False),
+    (nextafter(1.0, 2.0), False),
+    (1.01, False),
+])
+def test_fee_boundaries_agree_across_configuration_accounting_and_environment(config, fee, valid):
+    market = snapshot_for(MarketRegime.NORMAL, config.market)
+    portfolio = PortfolioSnapshot(cash=100.0, sealed_count=1)
+    operations = (
+        lambda: replace(config, selling_fee_rate=fee),
+        lambda: liquidation_value(portfolio, market, selling_fee=fee),
+        lambda: liquidate(portfolio, market, selling_fee=fee),
+        lambda: apply_action(portfolio, Action.HOLD, market,
+                             selling_fee=fee, inventory_capacity=10),
+        lambda: build_environment(replace(config, selling_fee_rate=fee)),
+    )
+    for operation in operations:
+        if valid:
+            operation()
+        else:
+            with pytest.raises(ValueError, match="selling_fee"):
+                operation()
+
+
+@pytest.mark.parametrize("suffix", ["json", "yaml"])
+@pytest.mark.parametrize("fee", [1.0, nextafter(1.0, 2.0)])
+def test_loaders_reject_one_hundred_percent_or_higher_fees(tmp_path, suffix, fee):
+    data = json.loads((CONFIG_DIR / "environment.json").read_text(encoding="utf-8"))
+    data["pack_config"] = str(CONFIG_DIR / "nfl_pack.json")
+    data["selling_fee_rate"] = fee
+    path = tmp_path / f"environment.{suffix}"
+    path.write_text(json.dumps(data) if suffix == "json" else yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="selling_fee_rate must be less than 1"):
+        load_environment_config(path)
 
 
 def test_config_hash_covers_all_behavioral_settings(config):

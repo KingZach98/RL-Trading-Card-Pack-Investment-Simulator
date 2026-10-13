@@ -1,0 +1,23 @@
+{
+  "bootstrap_resamples": 2000,
+  "bootstrap_seed": 22,
+  "confidence": 0.95,
+  "limitations": [
+    "Historical PF-21 tuning records are incomplete locally.",
+    "Models trained for 2000 steps / 20 episodes; convergence not established.",
+    "PF-12/PF-13 float32 affordability ambiguity is retained.",
+    "Scenario bootstrap does not measure training variability or model-selection uncertainty."
+  ],
+  "loss_tolerance": 1e-09,
+  "method": "percentile bootstrap of scenario means; linear quantiles",
+  "pairing": "same scenario index for model and baseline; common resamples across models",
+  "quantile_method": "linear",
+  "replica_mean_final_value": 328.77922,
+  "replica_sample_std_of_means": 139.45231446036874,
+  "replica_summary_label": "descriptive across five models on shared scenarios; not independent market samples",
+  "sampling_unit": "scenario, conditional on each fixed checkpoint",
+  "scenario_count": 500,
+  "small_sample_warning": false,
+  "standard_deviation_ddof": 1,
+  "training_uncertainty_included": false
+}

@@ -187,8 +187,8 @@ class EnvironmentConfig:
         _integer(self.horizon, "horizon", minimum=1)
         object.__setattr__(self, "initial_cash", _positive_float(self.initial_cash, "initial_cash"))
         fee = _probability(self.selling_fee_rate, "selling_fee_rate")
-        if fee > 1:
-            raise ValueError("selling_fee_rate must not exceed 1")
+        if fee >= 1:
+            raise ValueError("selling_fee_rate must be less than 1")
         object.__setattr__(self, "selling_fee_rate", fee)
         if not isinstance(self.market, MarketConfig):
             raise TypeError("market must be MarketConfig")
