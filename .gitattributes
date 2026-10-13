@@ -4,3 +4,7 @@
 /results/summary.csv -text whitespace=cr-at-eol
 /results/uncertainty.json -text whitespace=cr-at-eol
 /results/held_out_manifest.json -text whitespace=cr-at-eol
+
+# Preserve byte hashes for the corrected PF-23 publication.
+/results/fee_sensitivity.csv -text whitespace=cr-at-eol
+/results/fee_sensitivity_manifest.json -text whitespace=cr-at-eol
