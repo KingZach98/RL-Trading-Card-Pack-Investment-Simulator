@@ -1,0 +1,6 @@
+# Preserve byte hashes for the selected PF-22 manifest and published results.
+/configs/splits/final_test_pf22.json -text whitespace=cr-at-eol
+/results/episodes.csv -text whitespace=cr-at-eol
+/results/summary.csv -text whitespace=cr-at-eol
+/results/uncertainty.json -text whitespace=cr-at-eol
+/results/held_out_manifest.json -text whitespace=cr-at-eol
