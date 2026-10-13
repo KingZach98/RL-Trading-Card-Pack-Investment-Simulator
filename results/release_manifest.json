@@ -1,0 +1,395 @@
+{
+  "release_manifest_version": 1,
+  "status": "PF-24 Phase 2 prepared locally; independent reproduction pending",
+  "source_snapshot": {
+    "head_commit": "fe0e0e1e83bc3bbdc22fcfd5314aa76985e11e74",
+    "pf24_changes_committed": false,
+    "final_publication_commit": null,
+    "note": "HEAD identifies the parent history; PF-24 plotting and documentation are currently uncommitted. Do not substitute this for the original experiment commits."
+  },
+  "protocol": {
+    "horizon": 100,
+    "initial_cash": 100,
+    "inventory_capacity": 10,
+    "scenario_count": 500,
+    "seed_range": [
+      3001,
+      3500
+    ],
+    "scenario_manifest": "configs/splits/final_test_pf22.json",
+    "scenario_manifest_sha256": "f6b92a7b798d4e55a4f73dd75d66285cee7e2ae41d08989b74f68cccdc3adf34",
+    "scenario_version": "packfolio-scenarios-v1",
+    "frozen_config": "configs/env_frozen.yaml",
+    "frozen_config_hash": "57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330",
+    "fee_config_hashes": {
+      "0.025": "b4c57d02b506d60f85ab4adcfeb18a61672a8af5f508deabd96eeb6b94a3bbde",
+      "0.05": "57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330",
+      "0.1": "1ca1c65ec8b610c6edf4c231f8b84d12531735ef6baeebc45fa8e0399079c31d"
+    }
+  },
+  "artifacts": [
+    {
+      "path": "src/packfolio/plots.py",
+      "sha256": "85a2b64f0dec75d4919f3de83f56cc583c97230fea853ae34ba149c0e0378ae8"
+    },
+    {
+      "path": "tests/test_plots.py",
+      "sha256": "0168463cbc555ca8ed127d32fac8c76d803b51f188fbfd6f8de02caa5577784a"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "882de3ae61e625400be12f92522778bdbca385006172dc190638a187e9688e63"
+    },
+    {
+      "path": "uv.lock",
+      "sha256": "052a7dc5bd2e50325b16943cfddbbbd5f7a7a7439ab483d4ef82caa6fd9ebc14"
+    },
+    {
+      "path": "configs/env_frozen.yaml",
+      "sha256": "0861d1adeea647e7afe73ec5d983c26af6326d6a5a14521fac1ede1d7bfe86c8"
+    },
+    {
+      "path": "configs/env_frozen_fee_low.yaml",
+      "sha256": "cda07b1cf3637a817d53710202763d24a664fd8f3c1f0b39a2560c8a9c758fdb"
+    },
+    {
+      "path": "configs/env_frozen_fee_high.yaml",
+      "sha256": "21f6e8a9ee96bd7e0c6b138b3bbbd45d6ae8c02ba704b150b9028ad73c73f33a"
+    },
+    {
+      "path": "configs/nfl_pack.json",
+      "sha256": "c55142924a617ed1c707557a5272b6d5d2b4711ff59033c8f918a371d6c02a29"
+    },
+    {
+      "path": "configs/agent_selected.yaml",
+      "sha256": "bf882b23413a0151a1df76e2021d01551b282c7310c8a9afd903a1fd36ea6f6e"
+    },
+    {
+      "path": "configs/splits/final_test_pf22.json",
+      "sha256": "f6b92a7b798d4e55a4f73dd75d66285cee7e2ae41d08989b74f68cccdc3adf34"
+    },
+    {
+      "path": "runs/pf21-final-replicas/final_replicas_manifest.json",
+      "sha256": "2ba5b931cde52362486a626089ae0c29b0258015af8059c52be014b412e11633"
+    },
+    {
+      "path": "results/episodes.csv",
+      "sha256": "7baf329d329b11253c479d20bbc0976919291b88df244cbb8d1921684cf8c882"
+    },
+    {
+      "path": "results/summary.csv",
+      "sha256": "f3054b444b215e3763638e4a4c357c73a7c5b4e06cc4d23c28146e89a8c7ffe0"
+    },
+    {
+      "path": "results/uncertainty.json",
+      "sha256": "5049ce5159d0b6291c0c67e1db2e3cfced1200669f70663d4cc5e833793e4a0e"
+    },
+    {
+      "path": "results/held_out_manifest.json",
+      "sha256": "4f282ce4ddcbeee6b1eff4f536a128faa42d1f55aee454dc58befbc03ea188b6"
+    },
+    {
+      "path": "results/fee_sensitivity.csv",
+      "sha256": "0d862a90164064ff90c0997278b4efe1825c65173ab4ccafe871ad7898db2be1"
+    },
+    {
+      "path": "results/fee_sensitivity_manifest.json",
+      "sha256": "e99e601f6172474bb08c48b049dadcb93b83ca9d23c3e59c45642826ec8b0246"
+    },
+    {
+      "path": "results/figures/action_behaviour.png",
+      "sha256": "6ff1df2611f5a1778fca9e94baa25841fd458c51627c94b9eca8b69a91bd3ff6"
+    },
+    {
+      "path": "results/figures/downside.png",
+      "sha256": "15fd0a88a7cb2b29f4545ac13538007f51fe24bd9803329ff9117a5a80778a26"
+    },
+    {
+      "path": "results/figures/episode_examples.png",
+      "sha256": "8ea69b9037f27897d100d98f3917f3b1455a400df2692e5df33006ece03a74a9"
+    },
+    {
+      "path": "results/figures/fee_sensitivity.png",
+      "sha256": "4e9fe555fea88312cf8f3e36f1c529862832a3f5b23b7305f67b372e816b2762"
+    },
+    {
+      "path": "results/figures/final_values.png",
+      "sha256": "1fab3843074cd369fdd629f96943ae69f9100e54b586b61faa35953f64208e9d"
+    },
+    {
+      "path": "results/figures/training_history.png",
+      "sha256": "5c22aa3416e4d03b01d0057051c42b01cabadcd091f17c185111ef478f84cfc3"
+    },
+    {
+      "path": "docs/findings.md",
+      "sha256": "f50bcec7fb1a1dfa5ce478f8625821813b9f3cb34f6d33535b4117e13ebac1f6"
+    }
+  ],
+  "checkpoints": [
+    {
+      "model_id": "20261010T015008.025131Z-1854d265",
+      "training_seed": 20261013,
+      "checkpoint": {
+        "path": "runs/pf21-final-replicas/20261010T015008.025131Z-1854d265/checkpoint.pt",
+        "sha256": "a51e6e2b3683621e3c1005e0e8da5d1de571b97e5ab66181557a69fcb907fc7c"
+      },
+      "training_log": {
+        "path": "runs/pf21-final-replicas/20261010T015008.025131Z-1854d265/training_metrics.jsonl",
+        "sha256": "cb43a81b131d9ce14019729ab7e649116f4e83c381337d365c767dab49ee71f6",
+        "sha256_lf_normalized": "43de098c505bd259aa722fa018b64711b290a786d2d7b352547f8b7534cdae49"
+      },
+      "training_manifest": {
+        "path": "runs/pf21-final-replicas/20261010T015008.025131Z-1854d265/run_manifest.json",
+        "sha256": "05130c4786bd30f346122158b8f1a9b948a022c78132c3dd8b767f12a7424c6f"
+      },
+      "training_steps": 2000,
+      "training_episodes": 20,
+      "recorded_training_commit": "c8025c250331e6bac31d22b2cb75e6a6816cd4e0",
+      "recorded_training_tree_dirty": true
+    },
+    {
+      "model_id": "20261010T015010.102590Z-a3b92e2d",
+      "training_seed": 20261014,
+      "checkpoint": {
+        "path": "runs/pf21-final-replicas/20261010T015010.102590Z-a3b92e2d/checkpoint.pt",
+        "sha256": "469685b3415d555b42e03682940dc09f41cbfb118c5d30953c3116e5e8047903"
+      },
+      "training_log": {
+        "path": "runs/pf21-final-replicas/20261010T015010.102590Z-a3b92e2d/training_metrics.jsonl",
+        "sha256": "d4238cf7cbc7286f112eadef1ca0d9d6eebc3d89ca9c9d130b01eee3eec39230",
+        "sha256_lf_normalized": "f447627992680b42b3b384643da6a979512d6653515158be70b5f08a8e181bef"
+      },
+      "training_manifest": {
+        "path": "runs/pf21-final-replicas/20261010T015010.102590Z-a3b92e2d/run_manifest.json",
+        "sha256": "8cdb7c899a81f059f0b30010065650ede1d970f6d76ae00647f09880e7ad43ba"
+      },
+      "training_steps": 2000,
+      "training_episodes": 20,
+      "recorded_training_commit": "c8025c250331e6bac31d22b2cb75e6a6816cd4e0",
+      "recorded_training_tree_dirty": true
+    },
+    {
+      "model_id": "20261010T015012.273007Z-633d28f0",
+      "training_seed": 20261015,
+      "checkpoint": {
+        "path": "runs/pf21-final-replicas/20261010T015012.273007Z-633d28f0/checkpoint.pt",
+        "sha256": "cd6284493eeb46a642da412f7756926091b36aece6bed6f8a78dc1959f773d38"
+      },
+      "training_log": {
+        "path": "runs/pf21-final-replicas/20261010T015012.273007Z-633d28f0/training_metrics.jsonl",
+        "sha256": "963333a5edbcd84a8b924da480675172c9502ce1a3a86759a56adb74b04ad002",
+        "sha256_lf_normalized": "6091c67659ab3c15011710994f3fb6c31c57ee122b1ae544ab8d5b0ef25ab6f6"
+      },
+      "training_manifest": {
+        "path": "runs/pf21-final-replicas/20261010T015012.273007Z-633d28f0/run_manifest.json",
+        "sha256": "aa3ba37a812cc729d1584963d59fa45b2684b2965d5aefb3dcef99beffcc97df"
+      },
+      "training_steps": 2000,
+      "training_episodes": 20,
+      "recorded_training_commit": "c8025c250331e6bac31d22b2cb75e6a6816cd4e0",
+      "recorded_training_tree_dirty": true
+    },
+    {
+      "model_id": "20261010T015014.421835Z-40844f94",
+      "training_seed": 20261016,
+      "checkpoint": {
+        "path": "runs/pf21-final-replicas/20261010T015014.421835Z-40844f94/checkpoint.pt",
+        "sha256": "30d920e07e519b1440129cf5081ea96e3ae2dd5c3cb40e7d89ea44348a86e046"
+      },
+      "training_log": {
+        "path": "runs/pf21-final-replicas/20261010T015014.421835Z-40844f94/training_metrics.jsonl",
+        "sha256": "3c03fcec528d1b687ca51b6c5b6c33e2e20d835a4c0f5996294c52b2ef589b42",
+        "sha256_lf_normalized": "51dda346ccd0b920681da0eb8df19ff95cfd8493156c6e203ea940643630672a"
+      },
+      "training_manifest": {
+        "path": "runs/pf21-final-replicas/20261010T015014.421835Z-40844f94/run_manifest.json",
+        "sha256": "bbf9099f2821a765919c2095441733bfe65868b1bc9611740455801c167a4672"
+      },
+      "training_steps": 2000,
+      "training_episodes": 20,
+      "recorded_training_commit": "c8025c250331e6bac31d22b2cb75e6a6816cd4e0",
+      "recorded_training_tree_dirty": true
+    },
+    {
+      "model_id": "20261010T015016.590182Z-b79ff8f6",
+      "training_seed": 20261017,
+      "checkpoint": {
+        "path": "runs/pf21-final-replicas/20261010T015016.590182Z-b79ff8f6/checkpoint.pt",
+        "sha256": "4d23477259e9d37475b57cf88f9f87cbc8d9e12f6a91858cf7a12a967c94f53c"
+      },
+      "training_log": {
+        "path": "runs/pf21-final-replicas/20261010T015016.590182Z-b79ff8f6/training_metrics.jsonl",
+        "sha256": "be3646abc5e4793cd0a4da5ef88e5886244c606062785a9a850fc2d90c025e07",
+        "sha256_lf_normalized": "bf9b1f09707e3dbe603cadd27a947980285699b300fba3d91d98c94240ad87f0"
+      },
+      "training_manifest": {
+        "path": "runs/pf21-final-replicas/20261010T015016.590182Z-b79ff8f6/run_manifest.json",
+        "sha256": "d47728bea50e56805d5815940c57a09adcf274489deecd919eae420a937f0b55"
+      },
+      "training_steps": 2000,
+      "training_episodes": 20,
+      "recorded_training_commit": "c8025c250331e6bac31d22b2cb75e6a6816cd4e0",
+      "recorded_training_tree_dirty": true
+    }
+  ],
+  "original_run_provenance": {
+    "pf22": {
+      "commit": "b2ec4f176f4370745f099e377a99b547e02924f1",
+      "working_tree_dirty": true,
+      "manifest": "results/held_out_manifest.json"
+    },
+    "pf23": {
+      "commit": "76301a4405d204978561521c6a1998b765e0d779",
+      "working_tree_dirty": true,
+      "manifest": "outputs/pf23-corrected/manifest.json",
+      "manifest_sha256": "aee923abc43230dffbdac6d1f229c16ebb34c310f8fb8c451551cf7fbfed759c",
+      "episodes": "outputs/pf23-corrected/episodes.jsonl.gz",
+      "episodes_sha256": "bf74667189b925d23ded0b899836f7976f37f4d557a2c5462e0fcb5c8c0a5798"
+    }
+  },
+  "external_evidence": {
+    "required_archive": {
+      "path": "outputs/pf23-publication/pf23-evidence.zip",
+      "sha256": "eadec8f4cf7962fb0f96338ffa92072f2be29fb92eb8eb7d8190e84b94f22969",
+      "bytes": 24634730,
+      "tracked_in_git": false,
+      "members": [
+        "pf23-corrected/episodes.jsonl.gz",
+        "pf23-corrected/manifest.json",
+        "fee_sensitivity_corrected.csv",
+        "pf22-results.zip"
+      ],
+      "pf22_archive_sha256": "732723093507f3d8e09ab4aaa353e66acee4b3f26cdefffadf3b022a431b3df1",
+      "distribution_status": "available locally; obtain separately from project owner; no public download recorded"
+    },
+    "nested_reference_archive": {
+      "member": "pf22-results.zip",
+      "sha256": "732723093507f3d8e09ab4aaa353e66acee4b3f26cdefffadf3b022a431b3df1"
+    },
+    "failed_run_included": false,
+    "original_outputs_preserved": true
+  },
+  "figure_sources": {
+    "training_history.png": "committed PF-21 training_metrics.jsonl files",
+    "final_values.png": "PF-22 raw episode rows; seed-22 fixed-policy bootstrap",
+    "downside.png": "PF-22 raw episode rows; loss tolerance 1e-9; linear fifth percentile",
+    "action_behaviour.png": "PF-22 requested/executed action counts and infeasible requests",
+    "fee_sensitivity.png": "corrected PF-23 compressed episode rows plus PF-22 reference; seed-23 paired bootstrap",
+    "episode_examples.png": "PF-22 selected raw traces"
+  },
+  "uncertainty": {
+    "pf22": {
+      "bootstrap_resamples": 2000,
+      "bootstrap_seed": 22,
+      "confidence": 0.95,
+      "loss_tolerance": 1e-9,
+      "quantile_method": "linear",
+      "standard_deviation_ddof": 1
+    },
+    "pf23": {
+      "bootstrap_seed": 23,
+      "bootstrap_resamples": 2000,
+      "confidence": 0.95,
+      "loss_tolerance": 1e-9
+    },
+    "method": "percentile scenario bootstrap; linear quantiles",
+    "training_uncertainty_included": false,
+    "multiple_comparison_adjustment": false
+  },
+  "representative_examples": {
+    "rule": "nearest per-strategy median final value; lowest scenario seed breaks ties",
+    "paired_same_scenario_examples": false,
+    "selected": [
+      {
+        "policy_id": "DQN",
+        "training_seed": 20261013,
+        "scenario_seed": 3025,
+        "trace_path": "results/raw/DQN/20261013/step_traces/57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330_3025.jsonl"
+      },
+      {
+        "policy_id": "DQN",
+        "training_seed": 20261014,
+        "scenario_seed": 3133,
+        "trace_path": "results/raw/DQN/20261014/step_traces/57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330_3133.jsonl"
+      },
+      {
+        "policy_id": "DQN",
+        "training_seed": 20261015,
+        "scenario_seed": 3014,
+        "trace_path": "results/raw/DQN/20261015/step_traces/57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330_3014.jsonl"
+      },
+      {
+        "policy_id": "DQN",
+        "training_seed": 20261016,
+        "scenario_seed": 3270,
+        "trace_path": "results/raw/DQN/20261016/step_traces/57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330_3270.jsonl"
+      },
+      {
+        "policy_id": "DQN",
+        "training_seed": 20261017,
+        "scenario_seed": 3048,
+        "trace_path": "results/raw/DQN/20261017/step_traces/57ce865515268c2e271ab34776c6095276a48e5cd71736399732092fe73d7330_3048.jsonl"
+      },
+      {
+        "policy_id": "CASH_ONLY",
+        "training_seed": null,
+        "scenario_seed": 3001,
+        "trace_path": "results/raw/CASH_ONLY/step_traces/3001.jsonl"
+      },
+      {
+        "policy_id": "BUY_AND_HOLD",
+        "training_seed": null,
+        "scenario_seed": 3004,
+        "trace_path": "results/raw/BUY_AND_HOLD/step_traces/3004.jsonl"
+      },
+      {
+        "policy_id": "ALWAYS_OPEN",
+        "training_seed": null,
+        "scenario_seed": 3468,
+        "trace_path": "results/raw/ALWAYS_OPEN/step_traces/3468.jsonl"
+      },
+      {
+        "policy_id": "EV_ONE_STEP",
+        "training_seed": null,
+        "scenario_seed": 3147,
+        "trace_path": "results/raw/EV_ONE_STEP/3147/step_traces.jsonl"
+      }
+    ]
+  },
+  "regeneration": {
+    "command": ".\\.venv\\Scripts\\python.exe -B -m packfolio.plots --output results/figures-reproduced",
+    "dependencies": {
+      "numpy": "2.2.6",
+      "matplotlib": "3.10.3",
+      "torch": "2.7.1",
+      "packfolio": "0.1.0"
+    },
+    "environment_setup": "uv sync --locked --extra dev --extra agent",
+    "existing_output_directories_rejected": true,
+    "no_policy_evaluation_for_figures": true,
+    "historical_absolute_path_mapping_required": true,
+    "path_mapping_implemented": false,
+    "guide": "docs/findings.md"
+  },
+  "reproduction_status": {
+    "local_saved_evidence_hashes": "verified",
+    "local_six_figures": "generated and visually inspected",
+    "local_focused_tests": {
+      "passed": 6
+    },
+    "local_full_tests": {
+      "passed": 765,
+      "warnings": "14 dependency deprecation warnings"
+    },
+    "local_deterministic_rendering": "verified on temporary fixtures with the installed runtime",
+    "independent_clean_checkout_evaluation": {
+      "status": "pending",
+      "member": null,
+      "date": null,
+      "commit": null,
+      "evidence": null
+    },
+    "independent_cross_member_module_checks": "pending",
+    "portable_figure_regeneration": "pending historical path mapping and independent verification"
+  }
+}
