@@ -2,28 +2,30 @@ from stable_baselines3 import PPO
 from packfolio.environment.trading_env import TradingCardEnv
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
+
 
 MODEL_PATH = "models/ppo_trading_card"
+INVENTORIES = [1, 10, 100]
+
+os.makedirs("results", exist_ok=True)
 
 
-
-def evaluate():
-    env = TradingCardEnv(initial_boxes=1)
-
-    model = PPO.load(MODEL_PATH)
+def evaluate(initial_boxes, model):
+    env = TradingCardEnv(initial_boxes=initial_boxes)
 
     observation, info = env.reset()
 
-    print("\nPPO POLICY - 100 BOXES")
+    print(f"\nPPO POLICY - {initial_boxes} STARTING BOXES")
     print("=" * 70)
 
     terminated = False
     truncated = False
 
-    rows = []
     history = []
+
     while not terminated and not truncated:
-        # Current state BEFORE taking the action
+        # State BEFORE taking action
         state = env.get_state()
 
         action, _ = model.predict(
@@ -38,7 +40,7 @@ def evaluate():
             - open_count
             - sell_count
         )
-        
+
         history.append({
             "date": state["date"],
             "price": state["sealed_price"],
@@ -51,6 +53,13 @@ def evaluate():
         observation, reward, terminated, truncated, info = env.step(
             action
         )
+
+    # Final result
+    print(f"Final realized value: ${env.realized_value:,.2f}")
+
+    # --------------------------------------------------
+    # Plot policy
+    # --------------------------------------------------
 
     df = pd.DataFrame(history)
     df["date"] = pd.to_datetime(df["date"])
@@ -65,7 +74,6 @@ def evaluate():
         label="Sealed box price"
     )
 
-    # SELL actions
     # SELL actions
     sell_df = df[df["sell"] > 0]
 
@@ -113,7 +121,8 @@ def evaluate():
         )
 
     plt.title(
-        f"PPO Policy - {env.initial_boxes} Starting Boxes"
+        f"PPO Policy - {initial_boxes} Starting Box"
+        f"{'es' if initial_boxes > 1 else ''}"
     )
 
     plt.xlabel("Date")
@@ -123,12 +132,46 @@ def evaluate():
     plt.grid(alpha=0.2)
     plt.tight_layout()
 
+    path = f"results/ppo_policy_{initial_boxes}_boxes.png"
+
     plt.savefig(
-        f"results/ppo_policy_{env.initial_boxes}_boxes.png",
+        path,
         dpi=300
     )
 
-    plt.show()
+    plt.close()
+
+    print(f"Saved plot: {path}")
+
+    return env.realized_value
+
+
+def main():
+    # IMPORTANT:
+    # Same PPO model is used for all inventory sizes.
+    # The model was trained with 100 starting boxes.
+    model = PPO.load(MODEL_PATH)
+
+    ppo_values = {}
+
+    for initial_boxes in INVENTORIES:
+        value = evaluate(
+            initial_boxes,
+            model
+        )
+
+        ppo_values[initial_boxes] = value
+
+    print("\n" + "=" * 70)
+    print("PPO SUMMARY")
+    print("=" * 70)
+
+    for initial_boxes, value in ppo_values.items():
+        print(
+            f"{initial_boxes:>3} boxes: "
+            f"${value:,.2f}"
+        )
+
 
 if __name__ == "__main__":
-    evaluate()
+    main()
