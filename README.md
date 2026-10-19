@@ -1,168 +1,69 @@
 # Packfolio
 
-Python package: `packfolio` (Python 3.12). Core dependencies are NumPy 2.2.6,
-Gymnasium 1.1.1, and Matplotlib 3.10.3. The optional DQN dependency is
-PyTorch 2.7.1; tests use pytest 8.4.1. Pack sampling, market transitions,
-shared contracts, reproducible scenarios, and the Gymnasium environment are
-implemented. The DQN agent and training modules are still placeholders.
+Packfolio tests when to keep, open, or sell boxes of 2020 Panini Prizm Football
+cards. Each run starts with owned boxes, not a cash budget. The current branch,
+`alternate-dev`, uses historical sealed-box prices and Stable-Baselines3 PPO.
 
-## Local setup
+Results appear in the terminal and saved charts. There is no app screen.
 
-Install Python 3.12 and clone the repository. From the repository root, on
-Windows (PowerShell):
+## Setup
 
-```powershell
-py -m pip install --user uv==0.9.1
-py -m uv sync --locked --extra dev
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
-On macOS or Linux, install uv 0.9.1 outside the project environment using the
-[uv installation guide](https://docs.astral.sh/uv/getting-started/installation/), then:
-
-```sh
-uv sync --locked --extra dev
-.venv/bin/python -m pytest -q
-```
-
-Add `--extra agent` to `uv sync` when developing the DQN agent. PyTorch is
-not installed by default. The committed `uv.lock` pins the full dependency
-graph; use `--locked` on `uv sync` to reject a stale lockfile. Run
-`uv lock` and commit the updated lock whenever dependencies change.
-
-On Windows, keep uv outside `.venv` and call it with `py -m uv`. A sync can
-[remove tools installed inside the managed environment](https://docs.astral.sh/uv/concepts/projects/sync/#handling-of-extraneous-packages). The project itself
-still runs with `.venv\Scripts\python.exe`, which uses Python 3.12.
-
-Local secrets belong in `.env` (or `.env.*`), and generated results in
-`outputs/`, `runs/`, or `checkpoints/`; these paths and model weights are
-ignored by Git. Put versioned, non-secret scenario settings in `configs/`.
-
-## Reproducible DQN training
-
-The simulator assumptions are loaded from `configs/environment.json`;
-independent DQN hyperparameters are loaded from `configs/agent.yaml`. From the
-repository root, install the optional agent dependencies and start a run with:
+Use Python 3.12. From the repository root, run:
 
 ```powershell
-.\.venv\Scripts\uv.exe sync --locked --extra dev --extra agent
-.\.venv\Scripts\uv.exe run --locked --extra dev --extra agent python -m packfolio.train
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install numpy pandas matplotlib gymnasium stable-baselines3
+$env:PYTHONPATH = "$PWD\src"
 ```
 
-Override the inputs with `--environment-config`, `--agent-config`, and
-`--output-root`. Each invocation creates a new unique run directory containing
-the exact input files, a fully resolved environment configuration, a
-`run_manifest.json`, per-episode `training_metrics.jsonl`, and a reloadable
-`checkpoint.pt`. The manifest records the Git commit and dirty state, package
-versions, seeds, runtime, environment config hash, and actual environment-step
-count. Training uses replay sampling, a periodically synchronized target
-network, epsilon-greedy exploration, and `gamma = 1.0`; invalid actions are
-allowed by design and their per-episode rate is logged. Checkpoints can be
-loaded for deterministic policy inference with
-`packfolio.agents.dqn_agent.load_trained_agent`.
+Skip the first two commands if your environment already has these packages.
+Set `PYTHONPATH` in each new terminal. Run from the repository root so the
+relative data and model paths work. This branch has no dependency or lockfile.
 
-## Environment compatibility checks (PF-11)
+## Run
 
-The selected agent stack is a custom DQN using PyTorch, not Stable-Baselines3.
-Install the locked agent dependencies, then run the mandatory check from the
-repository root on Windows:
+Run each command on its own:
 
 ```powershell
-py -m uv sync --locked --extra dev --extra agent
-.\.venv\Scripts\python.exe -m packfolio.check_env
+# Check the environment with the Stable-Baselines3 checker.
+.\.venv\Scripts\python.exe -m packfolio.environment.trading_env
+
+# Train PPO for 50,000 steps with 100 starting boxes.
+.\.venv\Scripts\python.exe -m packfolio.training.train
+
+# Load the saved model and test it with 1, 10, and 100 boxes.
+.\.venv\Scripts\python.exe -m packfolio.evaluation.evaluate
+
+# Run the fixed strategies and save comparison charts.
+.\.venv\Scripts\python.exe -m packfolio.evaluation.baseline
 ```
 
-The command runs Gymnasium's checker, then sends observations through a small,
-untrained CPU network with eight inputs and four action outputs. It converts
-the selected action to a scalar, runs a full episode, checks the end guard,
-and replays the same seed. It also checks conversion of rewards to tensors.
-This follows the tensor/action boundary in the
-[PyTorch DQN tutorial](https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html).
-It does not train a DQN or test the future agent's quality.
+Training saves `models/ppo_trading_card.zip` and replaces that file on later
+runs. Train before evaluating, or use an existing model with matching spaces.
 
-Expect `Gymnasium and PyTorch boundary checks passed (100 steps, replay matched)`
-with the shipped config. The command exits with an error if PyTorch is missing.
-It prints the config hash, seed, inventory capacity, and reference price.
-Use `--config`, `--seed`, `--inventory-capacity`, and `--reference-price` to
-check other settings. Only the known warning about unbounded observation
-maxima is hidden; other Gymnasium checker warnings stay visible.
+Evaluation saves `results/ppo_policy_{n}_boxes.png`. Baselines save
+`results/strategy_comparison_{n}_boxes.png`. Here, `n` is the starting box count.
 
-Run the saved environment checks with:
+The baselines are keep all, sell now, open all, half open/half sell, and random.
+The half-and-half case skips a one-box inventory. Random strategies and those
+that open boxes use 100 runs per inventory size.
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q tests/test_env.py tests/test_env_actions.py tests/test_env_rewards.py tests/test_env_terminal.py tests/test_accounting.py tests/test_check_env.py -p no:cacheprovider
-```
+## Data and results
 
-PyTorch-specific pytest cases skip when the optional dependency is absent.
-Those skips do not count as a compatibility pass: run the mandatory command
-with the agent extra before signing off PF-11. Nasir's actual DQN integration
-still needs its own tests when that agent exists.
+The `data/` folder holds card prices, sealed-box prices, and a card market index.
+The environment uses box-price rows from February 2021 onward. Opened-card
+values use listed ungraded prices times the card market factor for that date.
 
-## Whole-pack sampling and expected value
+Optional: `python -m packfolio.evaluation.open_eval` runs a large opening study
+and saves `results/open_value_distribution.png`. It also opens a plot window.
 
-`configs/nfl_pack.json` contains a **synthetic** NFL-themed five-card pack
-distribution, not real product odds or market prices. Each outcome lists all
-five cards; `base_bundle_value` is the gross value of that entire bundle at a
-market multiplier of one, in a consistent simulation currency unit.
+Keep these limits in mind:
 
-```python
-import numpy as np
+- Reported values are gross proceeds in USD, not profit or percentage returns.
+- The baseline chart uses saved PPO numbers in `PPO_VALUES`, not a fresh run.
+- Evaluation does not write policy CSVs. `results/plot_policy.py` reads existing ones.
+- A reset seed does not seed the box-opening draws.
+- This branch has no test source files. The environment checker is the current check.
 
-from packfolio.packs import expected_gross_value, load_pack_config, sample_pack
-
-config = load_pack_config("configs/nfl_pack.json")
-rng = np.random.default_rng(42)
-draw = sample_pack(config, market_multiplier=1.2, rng=rng)
-print(draw.outcome_id, draw.gross_bundle_value, draw.contents)
-ev = expected_gross_value(config, market_multiplier=1.2)  # 18.9
-```
-
-Run the example from the repository root or pass your own configuration path.
-The loader requires a pack identifier, a positive `cards_per_pack`, and nonempty
-outcomes with unique identifiers, finite nonnegative probabilities and bundle
-values, and exactly `cards_per_pack` card descriptions. Probabilities must sum
-to one with **absolute tolerance `1e-9` and zero relative tolerance**. Accepted
-rounding error is normalized consistently for sampling and analytical EV.
-Invalid configuration or multipliers raise an explicit error; zero multipliers
-are allowed. Reusing the same configuration and restoring a NumPy generator's
-state reproduces the draws; no global random state is used.
-
-The sampler returns a `PackDraw` with `outcome_id`, `gross_bundle_value`, and
-the full `contents`. Gross value is `base_bundle_value * market_multiplier`.
-Analytical EV is the probability-weighted sum of these gross bundle values;
-it does not sample or consume random state.
-
-**Handoff:** Zachery applies selling fees once outside this module, when a sale
-occurs, and handles cash changes there. Saki uses `expected_gross_value` for
-the EV baseline. Neither function deducts fees, pack purchase costs, or changes
-cash.
-
-## DQN agent
-
-Packfolio's DQN adapter uses the frozen eight-feature observation order and the
-four action IDs in `docs/interfaces.md`. Its fixed preprocessing divides the
-cash ratio by ten and leaves the other already-normalized features unchanged.
-It does not clip cash: observations representing cash above the initial budget
-remain distinct. Training code should use `preprocess_observations` too, so
-training and evaluation use the same order and scaling. Evaluation uses
-deterministic `argmax` over the four Q-values; ties select the lowest action ID.
-The agent does not add action masking.
-
-DQN is a reasonable baseline for this problem because it has a small,
-fully-observed numerical state and a finite discrete action set, while the
-value of each action can depend on interactions among cash, inventory, market
-regime, and remaining horizon. Mnih et al. demonstrated deep Q-learning with a
-neural Q-function for discrete-action control; this project uses that
-value-based formulation, not their Atari architecture or experimental results
-([Mnih et al., *Nature* 518, 529–533 (2015)](https://doi.org/10.1038/nature14236)).
-This is a justified starting point, not evidence that DQN will outperform
-baselines on the simulator.
-
-The project code owns the observation validation/order, fixed feature scaling,
-8-to-4 network shape, and deterministic action adapter. The optional PyTorch
-dependency supplies the `Linear`/`ReLU` layers and tensor inference primitives;
-it does not provide the project-specific state/action contract or an
-environment. A caller can build or train the returned Q network and pass it to
-`DQNAgent.from_torch`; this module does not yet own an environment rollout,
-replay buffer, or optimizer loop. Install the optional `agent` extra to build
-or run a PyTorch-backed network.
+See [the spec](docs/spec.md) for the rules and [the interfaces](docs/interfaces.md)
+for the data passed between modules.
